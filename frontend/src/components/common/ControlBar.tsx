@@ -12,7 +12,7 @@ import { t } from '../../i18n';
  */
 export function ControlBar() {
   const {
-    selectedSymbol, setSelectedSymbol, selectedMarket, setSelectedMarket,
+    selectedSymbol, selectedMarket,
     isAnalyzing, nodes,
   } = useWorkflowStore();
   const { sendAnalysis } = useWebSocket();
@@ -45,32 +45,19 @@ export function ControlBar() {
         letterSpacing: -0.3,
       }}>TradingFlow</span>
 
-      {/* 股票代码输入框 */}
-      <input
-        value={selectedSymbol}
-        onChange={(e) => setSelectedSymbol(e.target.value)}
-        placeholder={t("control.placeholder")}
-        style={{
+      {/* 当前股票代码提示（从画布 InputNode 同步） */}
+      {selectedSymbol && (
+        <span style={{
           background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8,
-          padding: '6px 12px', color: 'var(--text)', fontSize: 13, width: 200,
-          backdropFilter: 'var(--blur-light)', WebkitBackdropFilter: 'var(--blur-light)',
-        }}
-      />
-
-      {/* 市场类型下拉选择 */}
-      <select
-        value={selectedMarket}
-        onChange={(e) => setSelectedMarket(e.target.value)}
-        style={{
-          background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8,
-          padding: '6px 12px', color: 'var(--text)', fontSize: 13,
-          backdropFilter: 'var(--blur-light)', WebkitBackdropFilter: 'var(--blur-light)',
-        }}
-      >
-        <option value="a_share">{t("market.a_share")}</option>
-        <option value="h_stock">{t("market.h_stock")}</option>
-        <option value="us_stock">{t("market.us_stock")}</option>
-      </select>
+          padding: '6px 12px', color: 'var(--accent-green)', fontSize: 13, fontWeight: 600,
+          fontFamily: 'monospace',
+        }}>
+          {selectedSymbol}
+          <span style={{ color: 'var(--text-muted)', fontSize: 11, marginLeft: 6 }}>
+            {selectedMarket === 'a_share' ? 'A股' : selectedMarket === 'us_stock' ? '美股' : '港股'}
+          </span>
+        </span>
+      )}
 
       {/* 分析按钮 — 分析中时禁用 */}
       <button

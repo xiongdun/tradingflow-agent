@@ -12,3 +12,8 @@
 .agent-analyzing {
   animation: agent-pulse 2s ease-in-out infinite;
 }
+
+@keyframes pulse-bar {
+  0%, 100% { opacity: 0.3; transform: scaleX(0.4); }
+  50% { opacity: 1; transform: scaleX(1); }
+}

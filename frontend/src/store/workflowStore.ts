@@ -137,41 +137,105 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   resetAnalysis: () => set({ opinions: [], finalReport: null, markdownReport: '', analysisProgress: [], isAnalyzing: false, analyzingAgents: [], agentProgressMap: {} }),
 
   /**
-   * 从工作流模板加载画布 — 生成分析师节点 + 总结节点 + 连接边
-   * 布局：每行 3 个分析师节点，总结节点在下方居中
+   * 从工作流模板加载画布
+   * 布局：Input(最左) → Skills(中左) → Analysts(中间竖排) → Summarizer(右)
    */
   loadFromTemplate: (template) => {
     const { agents } = get();
-    // 为每个 Agent 角色创建画布节点，按网格排列
+    const gap = 120;
+
+    // 输入节点（最左侧）
+    const inputNode: Node = {
+      id: 'input',
+      type: 'input',
+      position: { x: 20, y: 120 },
+      data: { label: '输入', symbol: '', market: 'a_share' },
+    };
+
+    // 收集所有技能（去重）
+    const allSkills = new Map<string, { category: string; description: string }>();
+    template.agents.forEach((role) => {
+      const agent = agents.find((a) => a.role === role);
+      (agent?.current_skills || []).forEach((sk) => {
+        if (!allSkills.has(sk)) allSkills.set(sk, { category: 'general', description: sk });
+      });
+    });
+
+    // 技能节点（竖排在分析师左侧）
+    const skillNames = Array.from(allSkills.keys());
+    const skillNodes: Node[] = skillNames.map((sk, i) => ({
+      id: `skill_${sk}`,
+      type: 'skill',
+      position: { x: 300, y: 20 + i * 70 },
+      data: { skillName: sk, label: sk, category: allSkills.get(sk)!.category, description: allSkills.get(sk)!.description, params: {} },
+    }));
+
+    // 分析师节点竖排（中间）
     const analystNodes: Node[] = template.agents.map((role, i) => {
       const agent = agents.find((a) => a.role === role);
       return {
         id: role,
         type: 'analyst',
-        position: { x: 100 + (i % 3) * 280, y: 100 + Math.floor(i / 3) * 200 },
+        position: { x: 560, y: 60 + i * gap },
         data: { role, label: agent?.name || role, skills: agent?.current_skills || [] },
       };
     });
-    // 创建总结研判节点，放在分析师下方
+
+    // 总结研判节点（最右侧居中）
+    const totalHeight = (template.agents.length - 1) * gap;
     const summarizerNode: Node = {
       id: 'summarizer',
       type: 'summarizer',
-      position: { x: 100 + (template.agents.length % 3) * 280, y: 100 + Math.floor(template.agents.length / 3) * 200 + 200 },
+      position: { x: 820, y: 60 + totalHeight / 2 },
       data: { role: 'summarizer', label: '总结研判', skills: [] },
     };
-    // 创建从每个分析师到总结节点的连接边
-    const edges: Edge[] = template.agents.map((role) => ({
+
+    // 边：Input → 每个 Analyst
+    const inputEdges: Edge[] = template.agents.map((role) => ({
+      id: `input-${role}`,
+      source: 'input',
+      target: role,
+      sourceHandle: 'right',
+      targetHandle: 'left',
+    }));
+
+    // 边：每个 Agent 的 Skill → 该 Agent
+    const skillEdges: Edge[] = [];
+    template.agents.forEach((role) => {
+      const agent = agents.find((a) => a.role === role);
+      (agent?.current_skills || []).forEach((sk) => {
+        skillEdges.push({
+          id: `skill_${sk}-${role}`,
+          source: `skill_${sk}`,
+          target: role,
+          sourceHandle: 'right',
+          targetHandle: 'left',
+        });
+      });
+    });
+
+    // 边：每个 Analyst → Summarizer
+    const summaryEdges: Edge[] = template.agents.map((role) => ({
       id: `${role}-summarizer`,
       source: role,
       target: 'summarizer',
+      sourceHandle: 'right',
+      targetHandle: 'left',
     }));
-    set({ nodes: [...analystNodes, summarizerNode], edges });
+
+    set({
+      nodes: [inputNode, ...skillNodes, ...analystNodes, summarizerNode],
+      edges: [...inputEdges, ...skillEdges, ...summaryEdges],
+    });
   },
 
   /** 从当前画布节点构建工作流定义 */
   _buildWorkflowDefinition: (name: string) => {
     const { nodes } = get();
     const agentNodes = nodes.filter((n) => n.type === 'analyst');
+    const skillNodes = nodes.filter((n) => n.type === 'skill');
+    const inputNode = nodes.find((n) => n.type === 'input');
+    const configNode = nodes.find((n) => n.type === 'config');
     return {
       name,
       description: '',
@@ -183,6 +247,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         if (d.label && d.label !== d.role) entry.name = d.label;
         return entry;
       }),
+      skills: skillNodes.map((n) => {
+        const d = n.data as any;
+        return { name: d.skillName, category: d.category, params: d.params || {} };
+      }),
+      input: inputNode ? { symbol: (inputNode.data as any).symbol, market: (inputNode.data as any).market } : undefined,
+      config: configNode ? { period: (configNode.data as any).period, days: (configNode.data as any).days } : undefined,
       summarizer_prompt: '',
     };
   },
