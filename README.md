@@ -2,59 +2,298 @@
 
 AI 多智能体股票分析系统 — 基于 LangGraph 的模块化 Agent 协作平台
 
+---
+
+## 📖 项目概述
+
+TradingFlow Agent 是一个面向股票市场的 AI 多智能体分析系统，采用 **LangGraph** 作为工作流引擎，将不同类型的分析任务分配给专业化的 Analyst Agent，最终由 Summarizer Agent 综合所有观点生成结构化投资报告。
+
+系统支持 **A股、港股、美股** 三大市场，内置 10+ 个专业分析师角色、20+ 个可插拔数据技能，并提供可视化工作流编排、实时 K 线图表、定时任务调度等企业级特性。所有 Agent 均基于大语言模型（LLM）驱动，支持 DeepSeek、OpenAI、Claude、Qwen、Ollama 等多种模型后端。
+
+---
+
 ## ✨ 核心特性
 
-- **6 个专业分析师 Agent**：基本面、技术面、情绪面、新闻、宏观经济、游资
-- **10 个可插拔 Skill**：每个 Agent 可动态增删技能
-- **拖拽式工作流编排**：React Flow 可视化编排 Agent 执行流程
-- **TradingView K线图**：Lightweight Charts 集成，Agent 分析标注叠加
-- **实时 WebSocket**：分析进度实时推送
-- **多市场支持**：A股、H股、美股
-- **可配置 LLM**：支持 DeepSeek、OpenAI、Claude、Qwen、Ollama
+### 多智能体协作架构
+- **10+ 个专业分析师 Agent**：基本面、技术面、情绪面、新闻、宏观、游资、量化、风控、行业轮动等
+- **独立人格与立场**：每个 Agent 拥有专属人设和分析框架，确保观点多样性
+- **交叉审阅机制**：多轮迭代模式下，Agent 之间可相互审阅、修正观点
+
+### 可插拔技能系统
+- **20+ 个数据 Skill**：财务数据、K线分析、情绪扫描、龙虎榜、资金流向、宏观指标等
+- **依赖拓扑执行**：Skill 支持声明依赖关系，系统自动按拓扑序并行调度
+- **市场适配**：每个 Skill 可声明支持的市场范围，自动过滤不适用技能
+
+### 灵活的工作流引擎
+- **4 种执行模式**：并行、条件分支、多轮迭代、自适应选股
+- **JSON 模板定义**：工作流通过 JSON 配置，无需修改代码即可定制分析流程
+- **可视化编排**：前端提供 React Flow 拖拽式工作流编辑器
+
+### 多数据源与缓存
+- **多源容错**：AKShare、yfinance、efinance、baostock 等多个数据源，支持优先级配置与自动降级
+- **磁盘 TTL 缓存**：按数据类型智能设置缓存过期策略，减少重复 API 调用
+- **代理自动绕过**：针对国内数据源自动清除系统代理，避免连接问题
+
+### 企业级功能
+- **REST API + WebSocket**：完整的 FastAPI 后端，支持实时分析进度推送
+- **定时任务调度**：基于 asyncio 的轻量调度器，支持每日/间隔/一次性分析任务
+- **分析历史与回测**：SQLite 持久化所有分析记录，支持历史预测准确率统计
+- **自选股与关注列表**：管理多组自选股，快速发起批量分析
+- **多语言支持**：中英文报告自动切换，前端 i18n 完整覆盖
+
+### 现代化前端
+- **React 19 + TypeScript**：函数组件 + Hooks 架构
+- **React Flow 工作流编排**：拖拽添加 Agent、连线定义执行顺序
+- **Lightweight Charts K线图**：专业级金融图表，支持 Agent 分析标注叠加
+- **Zustand 状态管理**：轻量全局状态，支持工作流草稿持久化
+
+---
+
+## 🏗️ 系统架构
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              用户层 (CLI / Web / API)                      │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐ │
+│  │  CLI 终端    │  │ React 前端   │  │ REST API    │  │ WebSocket 实时  │ │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  └─────────────────┘ │
+└─────────┼────────────────┼────────────────┼─────────────────────────────┘
+          │                │                │
+          └────────────────┴────────────────┘
+                              │
+┌─────────────────────────────▼─────────────────────────────────────────────┐
+│                         应用层 (FastAPI + LangGraph)                       │
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │                     AnalysisService 统一服务层                       │  │
+│  │         (消除 REST/WS/CLI/Scheduler 之间的代码重复)                   │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                              │                                            │
+│  ┌───────────────────────────▼────────────────────────────────────────┐  │
+│  │                     Graph Builder 工作流构建器                        │  │
+│  │  ┌──────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────────┐  │  │
+│  │  │ parallel │ │ conditional │ │ multi_round │ │    adaptive     │  │  │
+│  │  │ 并行模式  │ │  条件分支   │ │  多轮迭代   │ │   自适应选股    │  │  │
+│  │  └──────────┘ └─────────────┘ └─────────────┘ └─────────────────┘  │  │
+│  └────────────────────────────────────────────────────────────────────┘  │
+│                              │                                            │
+│  ┌───────────────────────────▼────────────────────────────────────────┐  │
+│  │                      Agent 层 (10+ 分析师)                           │  │
+│  │  ┌────────┐ ┌────────┐ ┌──────────┐ ┌─────┐ ┌──────┐ ┌──────────┐ │  │
+│  │  │基本面  │ │技术面  │ │ 情绪面   │ │新闻 │ │宏观  │ │  游资    │ │  │
+│  │  │fundamental│ technical │ sentiment │ news │ macro │ hot_money │ │  │
+│  │  └────────┘ └────────┘ └──────────┘ └─────┘ └──────┘ └──────────┘ │  │
+│  │  ┌────────┐ ┌────────┐ ┌──────────┐ ┌────────────────────────────┐ │  │
+│  │  │ 量化   │ │ 风控   │ │行业轮动  │ │      总结研判 summarizer    │ │  │
+│  │  │ quant  │ │ risk   │ │sector_rot│ │      (投资委员会主席)        │ │  │
+│  │  └────────┘ └────────┘ └──────────┘ └────────────────────────────┘ │  │
+│  └────────────────────────────────────────────────────────────────────┘  │
+│                              │                                            │
+│  ┌───────────────────────────▼────────────────────────────────────────┐  │
+│  │                      Skill 层 (20+ 数据技能)                         │  │
+│  │  financial_data  kline_analysis  sentiment_scan  news_fetch        │  │
+│  │  macro_indicators  dragon_tiger  sector_flow  fund_flow            │  │
+│  │  technical_indicators  peer_comparison  shareholder_analysis       │  │
+│  │  limit_up_analysis  block_trade  industry_analysis ...             │  │
+│  └────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
+                              │
+┌─────────────────────────────▼─────────────────────────────────────────────┐
+│                         数据层 (多源 + 缓存)                               │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │
+│  │  AKShare    │  │  yfinance    │  │  efinance   │  │  baostock       │  │
+│  │ (A股/港股)  │  │  (美股)      │  │  (A股备用)  │  │  (A股备用)      │  │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────────┘  │
+│                              │                                            │
+│  ┌───────────────────────────▼────────────────────────────────────────┐  │
+│  │              FallbackProvider → CachedProvider                      │  │
+│  │         (多源容错降级 → 磁盘 TTL 缓存 → 线程安全锁)                   │  │
+│  └────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
+                              │
+┌─────────────────────────────▼─────────────────────────────────────────────┐
+│                         基础设施层                                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐  │
+│  │   SQLite    │  │   LLM 工厂   │  │  配置中心    │  │   定时调度器     │  │
+│  │  (历史记录)  │  │(OpenAI/DS等)│  │  (.env 文件) │  │  (asyncio)      │  │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ## 📁 项目结构
 
 ```
 tradingflow-agent/
-├── backend/                     Python 后端 (FastAPI + LangGraph)
-│   ├── agents/                  6 个分析师 Agent
-│   ├── skills/                  10 个可插拔 Skill
-│   ├── graph/                   LangGraph 工作流引擎
-│   │   └── templates/           预置工作流模板
-│   ├── data/                    数据层 (AKShare + yfinance)
-│   ├── api/routes/              API 路由
-│   ├── cli.py                   CLI 入口
-│   └── main.py                  FastAPI 入口
-├── frontend/                    React 前端 (React Flow + Lightweight Charts)
-│   └── src/
-│       ├── components/
-│       │   ├── WorkflowEditor/  拖拽式工作流编排
-│       │   ├── TradingView/     K线图表 + Agent 标注
-│       │   └── Analysis/        分析报告展示
-│       ├── hooks/               WebSocket + 自定义 hooks
-│       └── store/               Zustand 状态管理
-├── docker-compose.yml           Docker 一键部署
-└── .env.example                 配置模板
+├── backend/                          # Python 后端 (FastAPI + LangGraph)
+│   ├── agents/                       # 分析师 Agent 模块
+│   │   ├── base.py                   # BaseAgent 抽象基类 (技能执行 / LLM 推理 / 结构化输出)
+│   │   ├── registry.py               # @agent 装饰器 + Agent 注册表 + 运行时技能覆盖
+│   │   ├── models.py                 # AgentOpinion Pydantic 模型
+│   │   ├── generic.py                # GenericAgent 通用分析师 (自定义角色)
+│   │   ├── summarizer.py             # SummarizerAgent 总结研判 + FinalReport 模型
+│   │   ├── fundamental.py            # 基本面分析师 (巴菲特价值投资风格)
+│   │   ├── technical.py              # 技术面分析师 (纯图表派)
+│   │   ├── sentiment.py              # 情绪面分析师 (逆向思维)
+│   │   ├── news.py                   # 新闻分析师 (事件驱动)
+│   │   ├── macro.py                  # 宏观分析师 (自上而下)
+│   │   ├── hot_money.py              # 游资分析师 (短线博弈)
+│   │   ├── quant.py                  # 量化分析师 (数据驱动)
+│   │   ├── risk.py                   # 风控分析师 (风险识别)
+│   │   └── sector_rotation.py        # 行业轮动分析师 (板块切换)
+│   ├── skills/                       # 可插拔 Skill 模块
+│   │   ├── registry.py               # @skill 装饰器 + SkillMeta 元数据 + 依赖管理
+│   │   ├── financial_data.py         # 财务数据获取
+│   │   ├── kline_analysis.py         # K线数据分析
+│   │   ├── sentiment_scan.py         # 市场情绪扫描
+│   │   ├── news_fetch.py             # 新闻事件获取
+│   │   ├── macro_indicators.py       # 宏观经济指标
+│   │   ├── dragon_tiger.py           # 龙虎榜数据
+│   │   ├── sector_flow.py            # 板块资金流向
+│   │   ├── fund_flow.py              # 个股资金流向
+│   │   ├── technical_indicators.py   # 技术指标计算
+│   │   ├── peer_comparison.py        # 同业对比
+│   │   ├── shareholder_analysis.py   # 股东结构分析
+│   │   ├── limit_up_analysis.py      # 涨停分析
+│   │   ├── block_trade.py            # 大宗交易
+│   │   ├── industry_analysis.py      # 行业分析
+│   │   └── financial_report.py       # 财报解析
+│   ├── graph/                        # LangGraph 工作流引擎
+│   │   ├── state.py                  # AgentState 共享状态 + merge_opinions 归并器
+│   │   ├── builder.py                # 工作流构建器 Facade (模式分发 + JSON 校验)
+│   │   ├── builders/                 # 各模式构建策略
+│   │   │   ├── common.py             # create_agents / create_summarizer / create_base_graph
+│   │   │   ├── parallel.py           # 并行模式：所有 Agent 同时执行
+│   │   │   ├── conditional.py        # 条件分支：按阶段 gate 控制执行路径
+│   │   │   ├── multi_round.py        # 多轮迭代：交叉审阅 + 观点修正
+│   │   │   └── adaptive.py           # 自适应模式：根据股票特征动态选 Agent
+│   │   ├── templates/                # 预置工作流模板 (JSON)
+│   │   │   ├── quick_scan.json       # 快速扫描 (技术面+情绪面)
+│   │   │   ├── deep_analysis.json    # 深度分析 (全 Agent)
+│   │   │   ├── debate.json           # 多空辩论
+│   │   │   ├── debate_v2.json        # 多空辩论 v2
+│   │   │   ├── full_spectrum.json    # 全谱分析
+│   │   │   └── risk_first.json       # 风控优先
+│   │   └── workflows/                # 编程式工作流示例
+│   │       └── debate.py             # 辩论模式代码实现
+│   ├── data/                         # 数据层
+│   │   ├── provider.py               # DataProvider 抽象基类 + @provider 装饰器
+│   │   ├── factory.py                # 数据提供者工厂 (多源容错 + 缓存包装)
+│   │   ├── fallback_provider.py      # FallbackProvider 多源降级链
+│   │   ├── akshare_provider.py       # AKShare 数据源 (A股/港股)
+│   │   ├── yfinance_provider.py      # yfinance 数据源 (美股)
+│   │   ├── efinance_provider.py      # efinance 数据源 (备用)
+│   │   └── baostock_provider.py      # baostock 数据源 (备用)
+│   ├── api/                          # REST API 路由
+│   │   └── routes/
+│   │       ├── analysis.py           # 分析执行 (REST + WebSocket)
+│   │       ├── agents.py             # Agent 管理 (技能增删改查)
+│   │       ├── workflows.py          # 工作流模板管理
+│   │       ├── market_data.py        # 行情数据接口
+│   │       ├── data_sources.py       # 数据源配置
+│   │       ├── history.py            # 分析历史记录
+│   │       ├── watchlist.py          # 自选股管理
+│   │       └── schedules.py          # 定时任务管理
+│   ├── core/                         # 核心基础设施
+│   │   ├── config.py                 # Settings Pydantic 模型 + .env 加载
+│   │   ├── config_writer.py          # 配置写入 .env (持久化)
+│   │   ├── llm.py                    # LLM 工厂 (OpenAI/DeepSeek/Claude/Ollama)
+│   │   ├── cache.py                  # 磁盘 TTL 缓存 (线程安全)
+│   │   ├── database.py               # SQLite 连接管理
+│   │   ├── scheduler.py              # 定时任务调度器 (asyncio)
+│   │   ├── analysis_service.py       # AnalysisService 统一分析服务
+│   │   ├── discovery.py              # 自动发现 (skills/agents/providers)
+│   │   ├── locale.py                 # 多语言翻译包 (zh/en)
+│   │   ├── parsing.py                # LLM 结构化输出解析
+│   │   ├── exceptions.py             # 自定义异常体系
+│   │   └── watchlist.py              # 自选股业务逻辑
+│   ├── repositories/                 # 数据访问层
+│   │   ├── base.py                   # SQLite DB 连接 + 表初始化
+│   │   └── history.py                # 分析历史 CRUD + 回测统计
+│   ├── output/                       # 报告输出
+│   │   └── report.py                 # Markdown / HTML / Text 报告生成器
+│   ├── tests/                        # 后端测试
+│   ├── cli.py                        # Typer CLI 入口
+│   └── main.py                       # FastAPI 应用入口
+├── frontend/                         # React 前端
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── WorkflowEditor/       # 工作流编排
+│   │   │   │   ├── Sidebar.tsx       # Agent 拖拽侧边栏
+│   │   │   │   ├── Canvas.tsx        # React Flow 画布
+│   │   │   │   ├── AgentNode.tsx     # Agent 节点组件
+│   │   │   │   ├── SummarizerNode.tsx# 总结节点组件
+│   │   │   │   ├── NodeConfig.tsx    # 节点配置面板
+│   │   │   │   ├── SkillPicker.tsx   # 技能选择器
+│   │   │   │   └── AgentDetailModal.tsx # Agent 详情弹窗
+│   │   │   ├── TradingView/
+│   │   │   │   └── Chart.tsx         # Lightweight Charts K线图
+│   │   │   ├── Analysis/
+│   │   │   │   └── ReportView.tsx    # 分析报告渲染 (Markdown)
+│   │   │   ├── History/
+│   │   │   │   └── HistoryPanel.tsx  # 历史记录列表
+│   │   │   ├── Watchlist/
+│   │   │   │   └── WatchlistPanel.tsx# 自选股面板
+│   │   │   ├── Schedule/
+│   │   │   │   └── SchedulePanel.tsx # 定时任务面板
+│   │   │   └── common/
+│   │   │       └── ControlBar.tsx    # 顶部控制栏 (股票输入/市场选择/分析按钮)
+│   │   ├── hooks/
+│   │   │   ├── useWebSocket.ts       # WebSocket 连接管理
+│   │   │   └── useTheme.ts           # 主题切换 Hook
+│   │   ├── store/
+│   │   │   └── workflowStore.ts      # Zustand 工作流状态
+│   │   ├── api/
+│   │   │   └── client.ts             # Axios API 客户端
+│   │   ├── i18n/                     # 国际化
+│   │   │   ├── index.ts              # i18n 入口
+│   │   │   ├── zh.json               # 中文语言包
+│   │   │   └── en.json               # 英文语言包
+│   │   ├── types/
+│   │   │   └── index.ts              # TypeScript 类型定义
+│   │   ├── constants/
+│   │   │   └── theme.ts              # 主题常量
+│   │   ├── App.tsx                   # 根组件 (标签页路由)
+│   │   ├── main.tsx                  # 入口文件
+│   │   └── index.css                 # 全局样式
+│   ├── package.json                  # 前端依赖
+│   └── vite.config.ts                # Vite 配置
+├── tests/                            # 集成测试
+├── docker-compose.yml                # Docker 一键部署
+├── Dockerfile.backend                # 后端镜像
+├── Dockerfile.frontend               # 前端镜像
+├── nginx.conf                        # Nginx 反向代理配置
+├── pyproject.toml                    # Python 项目配置
+├── requirements.txt                  # Python 依赖
+├── .env.example                      # 环境变量模板
+└── README.md                         # 本文件
 ```
+
+---
 
 ## 🚀 快速开始
 
 ### 方式一：本地开发
 
 ```bash
-# 1. 克隆并安装
+# 1. 克隆并创建虚拟环境
+git clone <repo-url>
+cd tradingflow-agent
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# 2. 安装依赖
 pip install -e ".[dev]"
 
-# 2. 配置
+# 3. 配置环境变量
 cp .env.example .env
 # 编辑 .env 填入你的 LLM API Key
 
-# 3. 启动后端
+# 4. 启动后端 API 服务
 python -m backend.cli serve
+# 或: uvicorn backend.main:app --reload
 
-# 4. 启动前端（另一个终端）
+# 5. 启动前端 (新终端)
 cd frontend
 npm install
 npm run dev
@@ -70,40 +309,85 @@ docker-compose up --build
 # 打开 http://localhost:3000
 ```
 
-### CLI 使用
+---
+
+## 🖥️ CLI 使用
 
 ```bash
-# 分析股票
+# 分析股票 (深度分析)
 python -m backend.cli analyze 600519 --market a_share --workflow deep_analysis
 
 # 快速扫描
 python -m backend.cli analyze AAPL --market us_stock --workflow quick_scan
 
-# 查看技能
+# 自定义 Agent 组合
+python -m backend.cli analyze 600519 --agents fundamental,technical,quant
+
+# 查看所有技能
 python -m backend.cli skills
 
-# 查看 Agent
+# 查看所有 Agent
 python -m backend.cli agents-list
 
-# 查看/修改配置
+# 查看配置
 python -m backend.cli config --show
+
+# 修改配置
 python -m backend.cli config LLM_API_KEY your-key-here
+
+# 启动 API 服务
+python -m backend.cli serve --host 0.0.0.0 --port 8000
 ```
 
-## 🧩 Agent 系统
+---
 
-| Agent | 角色 | 人设 | 默认技能 |
-|-------|------|------|----------|
-| 基本面分析师 | fundamental | 巴菲特价值投资 | financial_data, stock_info, peer_comparison |
-| 技术面分析师 | technical | 纯图表派 | kline_data, realtime_quote |
-| 情绪面分析师 | sentiment | 逆向思维 | sentiment_scan, realtime_quote |
-| 新闻分析师 | news | 事件驱动 | news_fetch, realtime_quote |
-| 宏观分析师 | macro | 自上而下 | macro_indicators, stock_info |
-| 游资分析师 | hot_money | 短线博弈 | realtime_quote, kline_data, sentiment_scan, news_fetch, dragon_tiger, sector_flow |
+## 🧩 Agent 系统详解
+
+### 内置分析师 Agent
+
+| Agent | 角色标识 | 人设风格 | 默认技能 |
+|-------|---------|---------|---------|
+| 基本面分析师 | `fundamental` | 巴菲特价值投资 | `financial_data`, `stock_info`, `peer_comparison` |
+| 技术面分析师 | `technical` | 纯图表派 | `kline_data`, `realtime_quote` |
+| 情绪面分析师 | `sentiment` | 逆向思维 | `sentiment_scan`, `realtime_quote` |
+| 新闻分析师 | `news` | 事件驱动 | `news_fetch`, `realtime_quote` |
+| 宏观分析师 | `macro` | 自上而下 | `macro_indicators`, `stock_info` |
+| 游资分析师 | `hot_money` | 短线博弈 | `realtime_quote`, `kline_data`, `sentiment_scan`, `news_fetch`, `dragon_tiger`, `sector_flow` |
+| 量化分析师 | `quant` | 数据驱动 | `technical_indicators`, `kline_data` |
+| 风控分析师 | `risk` | 风险识别 | `financial_data`, `stock_info` |
+| 行业轮动分析师 | `sector_rotation` | 板块切换 | `sector_flow`, `industry_analysis` |
+| 总结研判 | `summarizer` | 投资委员会主席 | (无技能，综合所有意见) |
+
+### Agent 基类设计
+
+`BaseAgent` 定义了统一的分析生命周期：
+
+1. **技能执行** (`_execute_skills`)：按依赖拓扑分层并行执行，支持超时保护 (30s)
+2. **LLM 推理** (`analyze`)：构建系统提示词 + 数据文本 → 异步调用 LLM (120s 超时)
+3. **结构化输出** (`_parse_opinion`)：解析 JSON 输出为 `AgentOpinion` 模型
+4. **LangGraph 集成** (`run`)：作为图节点，自动归并到共享状态
+
+### Agent 注册与运行时配置
+
+```python
+# 注册新 Agent (使用 @agent 装饰器)
+from backend.agents.registry import agent
+
+@agent("我的分析师", "my_analyst", ["financial_data", "kline_data"], "你是...")
+class MyAgent(BaseAgent):
+    pass
+
+# 运行时动态调整技能
+from backend.agents.registry import set_agent_skills, add_agent_skill
+set_agent_skills("fundamental", ["financial_data", "peer_comparison"])
+add_agent_skill("technical", "fund_flow")
+```
+
+---
 
 ## 🔧 Skill 插件系统
 
-新增 Skill 只需创建文件并用 `@skill` 装饰器注册：
+### 注册新 Skill
 
 ```python
 # backend/skills/my_skill.py
@@ -111,38 +395,217 @@ from backend.skills.registry import skill
 
 @skill(
     name="my_custom_skill",
-    description="我的自定义技能",
-    markets=["a_share", "us_stock"],
-    category="custom",
+    description="我的自定义数据技能",
+    markets=["a_share", "us_stock"],      # 支持的市场
+    category="custom",                     # 分类
+    depends_on=["kline_data"],             # 依赖其他技能 (自动注入结果)
 )
-def my_skill(symbol: str, market: str) -> dict:
-    return {"result": "data"}
+def my_skill(symbol: str, market: str, kline_data: dict = None) -> dict:
+    # kline_data 由系统自动注入
+    return {"result": "analysis"}
 ```
 
-然后在 `backend/main.py` 中 import 即可自动注册。
+创建文件后无需手动导入，`auto_discover()` 会自动扫描并注册。
+
+### 内置 Skill 列表
+
+| Skill | 描述 | 支持市场 |
+|-------|------|---------|
+| `financial_data` | 财务数据 (PE/PB/ROE/营收) | 全市场 |
+| `kline_analysis` | K线数据分析 | 全市场 |
+| `sentiment_scan` | 市场情绪扫描 | 全市场 |
+| `news_fetch` | 新闻事件获取 | 全市场 |
+| `macro_indicators` | 宏观经济指标 | 全市场 |
+| `dragon_tiger` | 龙虎榜数据 | A股 |
+| `sector_flow` | 板块资金流向 | A股 |
+| `fund_flow` | 个股资金流向 | A股 |
+| `technical_indicators` | 技术指标计算 | 全市场 |
+| `peer_comparison` | 同业对比 | 全市场 |
+| `shareholder_analysis` | 股东结构分析 | A股 |
+| `limit_up_analysis` | 涨停分析 | A股 |
+| `block_trade` | 大宗交易 | A股 |
+| `industry_analysis` | 行业分析 | A股 |
+| `financial_report` | 财报解析 | A股 |
+
+---
+
+## 🏗️ 工作流引擎
+
+### 4 种执行模式
+
+#### 1. 并行模式 (parallel)
+所有分析师同时执行，最后汇总。适合快速获取多维度观点。
+
+```json
+{
+  "mode": "parallel",
+  "agents": [
+    {"role": "fundamental"},
+    {"role": "technical"},
+    {"role": "sentiment"}
+  ]
+}
+```
+
+#### 2. 条件分支模式 (conditional)
+按阶段顺序执行，通过 gate 节点控制是否进入下一阶段。适合风控优先场景。
+
+```json
+{
+  "mode": "conditional",
+  "stages": [
+    {"agents": ["risk"], "condition": "always"},
+    {"agents": ["fundamental", "technical"], "condition": "check_risk"}
+  ]
+}
+```
+
+#### 3. 多轮迭代模式 (multi_round)
+分析师多轮执行，每轮后由交叉审阅员指出逻辑矛盾和遗漏，Agent 修正观点。
+
+```json
+{
+  "mode": "multi_round",
+  "agents": ["fundamental", "technical"],
+  "rounds": 3
+}
+```
+
+#### 4. 自适应模式 (adaptive)
+根据股票特征动态选择分析师组合：
+- 大市值 (>1000亿) → 基本面 + 宏观 + 量化 + 风控
+- 小市值高换手 (<100亿, 换手>5%) → 游资 + 情绪 + 新闻 + 风控
+- 科技行业 → 技术面 + 基本面 + 新闻 + 量化
+- 其他 → 基本面 + 技术面 + 情绪 + 风控
+
+### 工作流模板
+
+| 模板 | 模式 | 说明 |
+|------|------|------|
+| `quick_scan` | parallel | 技术面 + 情绪面快速扫描 |
+| `deep_analysis` | parallel | 全 Agent 深度分析 |
+| `debate` | parallel | 多空辩论模式 |
+| `debate_v2` | parallel | 多空辩论 v2 |
+| `full_spectrum` | parallel | 全谱分析 |
+| `risk_first` | conditional | 风控优先 |
+
+---
 
 ## 📡 API 端点
 
+### 分析接口
+
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | /api/health | 健康检查 |
-| POST | /api/analyze | 执行分析 |
-| GET | /api/agents | Agent 列表 |
-| GET | /api/skills | 技能列表 |
-| GET | /api/workflows | 工作流模板 |
-| POST | /api/market/kline | K线数据 |
-| POST | /api/market/markers | 图表标注 |
-| PUT | /api/agents/{role}/skills | 更新 Agent 技能 |
-| POST | /api/agents/{role}/skills/add | 添加技能 |
-| POST | /api/agents/{role}/skills/remove | 移除技能 |
-| WS | /ws/analyze | WebSocket 实时分析 |
+| POST | `/api/analyze` | 执行股票分析 |
+| WS | `/ws/analyze` | WebSocket 实时分析 |
 
-## 🏗️ 工作流模板
+### Agent 管理
 
-- **quick_scan**：技术面 + 情绪面快速扫描
-- **deep_analysis**：全 6 个 Agent 深度分析
-- **debate**：多空辩论模式（多头律师 vs 空头律师）
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/agents` | 列出所有 Agent |
+| GET | `/api/agents/{role}/skills` | 获取 Agent 技能 |
+| PUT | `/api/agents/{role}/skills` | 批量设置技能 |
+| POST | `/api/agents/{role}/skills/add` | 添加技能 |
+| POST | `/api/agents/{role}/skills/remove` | 移除技能 |
+| POST | `/api/agents/{role}/skills/reset` | 重置为默认 |
+
+### 工作流管理
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/workflows` | 列出模板 |
+| POST | `/api/workflows` | 保存自定义模板 |
+
+### 数据与配置
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/health` | 健康检查 |
+| GET | `/api/skills` | 技能列表 |
+| GET | `/api/config` | 系统配置 (脱敏) |
+| POST | `/api/config` | 更新配置 |
+| GET | `/api/locale/{lang}` | 语言包 |
+| POST | `/api/market/kline` | K线数据 |
+| POST | `/api/market/markers` | 图表标注 |
+| GET | `/api/history` | 分析历史 |
+| GET | `/api/history/{id}` | 历史详情 |
+| GET | `/api/watchlist` | 自选股 |
+| GET | `/api/schedules` | 定时任务 |
+
+---
+
+## ⚙️ 配置说明
+
+`.env` 文件支持的所有配置项：
+
+```bash
+# LLM 配置
+LLM_PROVIDER=deepseek              # openai / deepseek / qwen / claude / ollama
+LLM_MODEL=deepseek-chat
+LLM_API_KEY=your-api-key
+LLM_BASE_URL=https://api.deepseek.com/v1
+LLM_TEMPERATURE=0.3
+LLM_MAX_TOKENS=4096
+
+# 分析配置
+DEFAULT_MARKET=a_share
+ANALYSIS_TIMEOUT=120
+
+# 服务器配置
+API_HOST=0.0.0.0
+API_PORT=8000
+
+# 数据源优先级 (JSON)
+PROVIDER_PRIORITY={"a_share":["akshare","efinance"],"us_stock":["yfinance"]}
+
+# 显示配置
+COLOR_SCHEME=cn                    # cn=红涨绿跌, international=绿涨红跌
+LANGUAGE=zh                        # zh / en
+
+# 日志配置
+LOG_LEVEL=INFO
+```
+
+---
+
+## 🧪 测试
+
+```bash
+# 运行所有测试
+pytest
+
+# 运行特定模块
+pytest backend/tests/test_agents.py
+pytest backend/tests/test_skills.py
+pytest backend/tests/test_scheduler.py
+```
+
+---
+
+## 🐳 Docker 部署
+
+```bash
+# 构建并启动
+docker-compose up --build -d
+
+# 查看日志
+docker-compose logs -f backend
+docker-compose logs -f frontend
+
+# 停止
+docker-compose down
+```
+
+---
 
 ## 📜 免责声明
 
 本系统仅供学习和研究使用，AI 分析结果不构成投资建议。投资有风险，入市需谨慎。
+
+---
+
+## 📄 License
+
+MIT License
