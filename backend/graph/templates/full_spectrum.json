@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "name": "全频谱分析",
+  "description": "所有分析师参与的全维度深度分析，适合重大投资决策",
+  "mode": "parallel",
+  "agents": [
+    {"role": "fundamental"},
+    {"role": "technical"},
+    {"role": "sentiment"},
+    {"role": "news"},
+    {"role": "macro"},
+    {"role": "hot_money"},
+    {"role": "sector_rotation"},
+    {"role": "quant"},
+    {"role": "risk"}
+  ],
+  "summarizer_prompt": "这是全频谱分析报告，请从价值、技术、情绪、资金、板块、量化、风控七个维度综合研判，给出详细的投资建议和风险提示。"
+}

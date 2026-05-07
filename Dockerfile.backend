@@ -1,0 +1,27 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install system deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Python deps
+COPY pyproject.toml .
+RUN pip install --no-cache-dir -e . 2>/dev/null || pip install --no-cache-dir \
+    langgraph langchain langchain-openai fastapi "uvicorn[standard]" websockets \
+    typer rich pydantic pydantic-settings python-dotenv akshare yfinance \
+    pandas numpy httpx loguru
+
+# Copy source
+COPY backend/ backend/
+COPY .env.example .env.example
+
+# Create non-root user
+RUN useradd -m appuser
+USER appuser
+
+EXPOSE 8000
+
+CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

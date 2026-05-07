@@ -1,0 +1,78 @@
+# backend/core/analysis_service.py
+# 分析执行服务 — 统一 REST/WS/CLI/调度器的分析逻辑，消除重复
+
+from __future__ import annotations
+
+import json
+from typing import Any
+
+from loguru import logger
+
+from backend.graph import TEMPLATES_DIR
+from backend.output.report import generate_markdown_report
+
+
+class AnalysisService:
+    """统一分析执行服务"""
+
+    @staticmethod
+    async def run(symbol: str, market: str, workflow_def: dict[str, Any]) -> dict[str, Any]:
+        """执行分析并返回结果（不持久化）
+
+        Returns:
+            {"report": dict, "opinions": list, "markdown": str}
+        """
+        from backend.graph.builder import build_from_json
+        from backend.core.exceptions import AnalysisError
+
+        try:
+            graph = build_from_json(workflow_def)
+        except Exception as e:
+            raise AnalysisError(symbol, f"工作流构建失败: {e}") from e
+
+        try:
+            result = await graph.ainvoke({
+                "symbol": symbol,
+                "market": market,
+                "opinions": [],
+                "final_report": None,
+                "workflow_name": workflow_def.get("name", ""),
+                "status": "running",
+                "error": None,
+                "round": 0,
+                "selected_agents": [],
+            })
+        except Exception as e:
+            raise AnalysisError(symbol, str(e)) from e
+
+        final_report = result.get("final_report", {})
+        opinions = result.get("opinions", [])
+        md = generate_markdown_report(final_report) if final_report else ""
+        return {"report": final_report, "opinions": opinions, "markdown": md}
+
+    @staticmethod
+    async def run_and_save(symbol: str, market: str, workflow_def: dict[str, Any]) -> dict[str, Any]:
+        """执行分析 + 持久化到数据库"""
+        result = await AnalysisService.run(symbol, market, workflow_def)
+        try:
+            from backend.repositories.history import save_analysis
+            await save_analysis(
+                symbol=symbol,
+                market=market,
+                workflow=workflow_def.get("name", ""),
+                agents=[a["role"] for a in workflow_def.get("agents", [])],
+                opinions=result["opinions"],
+                report=result["report"],
+                markdown=result["markdown"],
+            )
+        except Exception as e:
+            logger.warning(f"Failed to save analysis: {e}")
+        return result
+
+    @staticmethod
+    def load_workflow(workflow_name: str) -> dict[str, Any] | None:
+        """从模板目录加载工作流定义"""
+        template_path = TEMPLATES_DIR / f"{workflow_name}.json"
+        if not template_path.exists():
+            return None
+        return json.loads(template_path.read_text(encoding="utf-8"))

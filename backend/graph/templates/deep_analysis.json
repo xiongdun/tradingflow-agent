@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "name": "深度分析",
+  "description": "全维度深度分析，适合中长期投资决策",
+  "agents": [
+    {"role": "fundamental", "skills": ["financial_data", "stock_info", "peer_comparison"]},
+    {"role": "technical", "skills": ["kline_data", "realtime_quote"]},
+    {"role": "sentiment", "skills": ["sentiment_scan", "realtime_quote"]},
+    {"role": "news", "skills": ["news_fetch", "realtime_quote"]},
+    {"role": "macro", "skills": ["macro_indicators", "stock_info"]},
+    {"role": "hot_money", "skills": ["realtime_quote", "kline_data", "sentiment_scan", "news_fetch", "dragon_tiger", "sector_flow"]}
+  ],
+  "summarizer_prompt": ""
+}

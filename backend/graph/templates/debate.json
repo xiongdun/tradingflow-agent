@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "name": "多空辩论",
+  "description": "多头和空头观点碰撞，适合需要看清两面的投资者",
+  "agents": [
+    {"role": "fundamental", "skills": ["financial_data", "peer_comparison"], "extra_prompt": "请特别强调该股票的投资价值和潜在上涨空间。"},
+    {"role": "technical", "skills": ["kline_data"], "extra_prompt": "请特别关注技术面的看跌信号和风险。"},
+    {"role": "sentiment", "skills": ["sentiment_scan"]},
+    {"role": "macro", "skills": ["macro_indicators"]}
+  ],
+  "summarizer_prompt": "请注意多空双方的分歧点，重点分析谁的论据更有力。"
+}

@@ -1,0 +1,56 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* ── 深色主题（默认） ── */
+:root,
+[data-theme="dark"] {
+  --bg: #0f0f13;
+  --bg-panel: #18181b;
+  --bg-card: #1e1e2e;
+  --bg-input: #27272a;
+  --bg-hover: #27272a;
+  --border: #27272a;
+  --border-strong: #3f3f46;
+  --text: #e4e4e7;
+  --text-secondary: #a1a1aa;
+  --text-muted: #71717a;
+  --text-subtle: #d4d4d8;
+}
+
+/* ── 浅色主题 ── */
+[data-theme="light"] {
+  --bg: #f8f9fa;
+  --bg-panel: #ffffff;
+  --bg-card: #f1f3f5;
+  --bg-input: #e9ecef;
+  --bg-hover: #e9ecef;
+  --border: #dee2e6;
+  --border-strong: #ced4da;
+  --text: #1a1a2e;
+  --text-secondary: #495057;
+  --text-muted: #868e96;
+  --text-subtle: #343a40;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-panel);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 3px;
+}

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "name": "快速扫描",
+  "description": "技术面+情绪面快速扫描，适合短线交易决策",
+  "agents": [
+    {"role": "technical", "skills": ["kline_data", "realtime_quote"]},
+    {"role": "sentiment", "skills": ["sentiment_scan", "realtime_quote"]}
+  ],
+  "summarizer_prompt": "这是一个快速扫描分析，请给出简洁的短期交易建议。"
+}

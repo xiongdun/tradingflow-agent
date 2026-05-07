@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "name": "增强辩论",
+  "description": "多轮交叉审阅辩论，观点碰撞更充分，适合争议性标的",
+  "mode": "multi_round",
+  "rounds": 2,
+  "agents": ["fundamental", "technical", "sentiment", "quant"],
+  "summarizer_prompt": "这是多轮辩论分析报告，请重点分析：1) 各分析师观点在辩论中的变化；2) 多空双方的核心分歧点；3) 最终观点是否收敛。"
+}

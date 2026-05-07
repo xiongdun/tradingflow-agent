@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "name": "风控优先",
+  "description": "先评估风险再深入分析，适合风险厌恶型投资者",
+  "mode": "conditional",
+  "stages": [
+    {"agents": ["risk"], "condition": "always"},
+    {"agents": ["fundamental", "technical", "quant"], "condition": "check_risk"},
+    {"agents": ["sentiment", "news"], "condition": "always"}
+  ],
+  "summarizer_prompt": "请特别关注风控分析师的风险提示。如果风控分析师给出空仓建议，请在报告中明确标注高风险，并给出保守的投资建议。"
+}
