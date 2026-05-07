@@ -17,7 +17,34 @@ export interface SkillInfo {
   name: string;                // 技能名称（如 financial_data）
   description: string;         // 技能描述
   markets: string[];           // 支持的市场列表
-  category: string;            // 所属类别（如 财务、技术面）
+  category: string;            // 所属类别（如 fundamental、technical）
+  params?: Record<string, string>;  // 参数说明
+  depends_on?: string[];       // 依赖的其他技能
+}
+
+// ─── 流程节点数据类型 ───
+
+/** 输入节点数据 — 股票代码 + 市场 */
+export interface InputNodeData {
+  symbol: string;              // 股票代码
+  market: string;              // 市场类型
+  label: string;
+}
+
+/** 配置节点数据 — 分析参数 */
+export interface ConfigNodeData {
+  period: string;              // K线周期 daily/weekly/monthly
+  days: number;                // 历史天数
+  label: string;
+}
+
+/** 技能节点数据 — 挂载到画布上的技能 */
+export interface SkillNodeData {
+  skillName: string;           // 技能标识
+  label: string;               // 显示名称
+  category: string;            // 技能类别
+  description: string;         // 技能描述
+  params: Record<string, string>;
 }
 
 // ─── 工作流类型 ───
@@ -25,12 +52,18 @@ export interface SkillInfo {
 /** 工作流画布节点 — React Flow 节点数据结构 */
 export interface WorkflowNode {
   id: string;                  // 节点唯一标识
-  type: 'analyst' | 'summarizer' | 'input';  // 节点类型
+  type: 'analyst' | 'summarizer' | 'input' | 'skill' | 'config';  // 节点类型
   data: {
-    role: string;              // Agent 角色
+    role?: string;             // Agent 角色（analyst 节点）
     label: string;             // 显示标签
-    skills: string[];          // 已选技能列表
+    skills?: string[];         // 已选技能列表（analyst 节点）
     extra_prompt?: string;     // 额外提示词
+    skillName?: string;        // 技能标识（skill 节点）
+    category?: string;         // 技能类别
+    symbol?: string;           // 股票代码（input 节点）
+    market?: string;           // 市场类型（input 节点）
+    period?: string;           // K线周期（config 节点）
+    days?: number;             // 历史天数（config 节点）
   };
   position: { x: number; y: number };  // 画布坐标
 }
@@ -51,6 +84,19 @@ export interface WorkflowDefinition {
     skills?: string[];         // 自定义技能（可选，覆盖默认）
     extra_prompt?: string;     // 额外提示词
   }>;
+  skills?: Array<{             // 独立技能节点
+    name: string;
+    category: string;
+    params?: Record<string, string>;
+  }>;
+  input?: {                    // 输入节点配置
+    symbol?: string;
+    market?: string;
+  };
+  config?: {                   // 配置节点
+    period?: string;
+    days?: number;
+  };
   summarizer_prompt?: string;  // 总结 Agent 的自定义提示词
 }
 

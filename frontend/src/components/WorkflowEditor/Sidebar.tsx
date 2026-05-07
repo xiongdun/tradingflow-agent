@@ -1,54 +1,140 @@
 // frontend/src/components/WorkflowEditor/Sidebar.tsx
-// 左侧边栏 — 可拖拽的 Agent 列表、总结研判节点、自定义 Agent、预置工作流模板
+// 左侧边栏 — 分类折叠面板：输入节点、参数配置、分析师、技能、总结研判、预置模板
 
 import { useEffect, useState, useCallback } from 'react';
 import { useWorkflowStore } from '../../store/workflowStore';
-import { getAgents } from '../../api/client';
+import { getAgents, getSkills } from '../../api/client';
 import { t } from '../../i18n';
 import { STANCE_COLORS } from '../../constants/theme';
-// 自定义 Agent 的循环配色
+import type { SkillInfo } from '../../types';
+
+/** 技能类别中文名 + 图标 */
+const CATEGORY_META: Record<string, { label: string; icon: string; color: string }> = {
+  fundamental: { label: '基本面', icon: '📊', color: '#34C759' },
+  technical:   { label: '技术面', icon: '📈', color: '#007AFF' },
+  sentiment:   { label: '情绪面', icon: '🔥', color: '#FF9500' },
+  news:        { label: '新闻面', icon: '📰', color: '#AF52DE' },
+  macro:       { label: '宏观面', icon: '🌐', color: '#5AC8FA' },
+  data:        { label: '数据',   icon: '💾', color: '#8e8e93' },
+  sector:      { label: '板块',   icon: '🔄', color: '#FF2D55' },
+  flow:        { label: '资金流', icon: '💧', color: '#FF3B30' },
+  analysis:    { label: '分析',   icon: '🔬', color: '#64D2FF' },
+  general:     { label: '通用',   icon: '⚙️', color: '#8e8e93' },
+};
+
 const CUSTOM_COLORS = ['#34C759', '#007AFF', '#FF9500', '#AF52DE', '#5AC8FA', '#FF3B30', '#FF2D55', '#64D2FF', '#FFCC00'];
 
-/**
- * Sidebar — 左侧边栏组件
- */
 export function Sidebar() {
-  const { agents, setAgents, nodes, addNode, saveWorkflow, exportWorkflow } = useWorkflowStore();
+  const { agents, setAgents, skills, setSkills, nodes, addNode, saveWorkflow, exportWorkflow } = useWorkflowStore();
   const [showCustom, setShowCustom] = useState(false);
   const [customName, setCustomName] = useState('');
   const [showSave, setShowSave] = useState(false);
   const [saveName, setSaveName] = useState('');
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    input: true, config: true, agents: true, skills: false, summarizer: true, templates: true,
+  });
 
   useEffect(() => {
     getAgents().then(setAgents).catch(console.error);
-  }, [setAgents]);
+    getSkills().then(setSkills).catch(console.error);
+  }, [setAgents, setSkills]);
 
-  const onDragStart = (e: React.DragEvent, type: string, role: string, label?: string) => {
-    e.dataTransfer.setData('application/reactflow', `${type}:${role}:${label || role}`);
+  const toggle = (section: string) => setOpenSections((s) => ({ ...s, [section]: !s[section] }));
+
+  const onDragStart = (e: React.DragEvent, data: string) => {
+    e.dataTransfer.setData('application/reactflow', data);
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  const addAgentToCanvas = (role: string) => {
-    if (nodes.some((n) => n.id === role)) return;
-    const agent = agents.find((a) => a.role === role);
-    const count = nodes.filter((n) => n.type === 'analyst').length;
+  /** 添加输入节点（只允许一个） */
+  const addInputNode = () => {
+    if (nodes.some((n) => n.type === 'input')) return;
     addNode({
-      id: role, type: 'analyst',
-      position: { x: 100 + (count % 3) * 280, y: 100 + Math.floor(count / 3) * 200 },
-      data: { role, label: agent?.name || role, skills: agent?.current_skills || [] },
+      id: 'input', type: 'input',
+      position: { x: 20, y: 120 },
+      data: { label: '输入', symbol: '', market: 'a_share' },
     });
   };
 
-  const addSummarizerToCanvas = () => {
-    if (nodes.some((n) => n.type === 'summarizer')) return;
+  /** 添加配置节点（只允许一个） */
+  const addConfigNode = () => {
+    if (nodes.some((n) => n.type === 'config')) return;
+    addNode({
+      id: 'config', type: 'config',
+      position: { x: 20, y: 300 },
+      data: { label: '参数配置', period: 'daily', days: 120 },
+    });
+  };
+
+  /** 添加分析师到画布（点击时同时创建关联 Skill 节点和连线） */
+  const addAgentToCanvas = (role: string) => {
+    if (nodes.some((n) => n.id === role)) return;
+    const agent = agents.find((a) => a.role === role);
+    const agentSkills = agent?.current_skills || [];
     const count = nodes.filter((n) => n.type === 'analyst').length;
+    const pos = { x: 420, y: 60 + count * 140 };
+
+    const batchNodes: any[] = [];
+    const batchEdges: { id: string; source: string; target: string; sourceHandle: string; targetHandle: string }[] = [];
+
+    // Analyst 节点
+    batchNodes.push({
+      id: role, type: 'analyst', position: pos,
+      data: { role, label: agent?.name || role, skills: agentSkills },
+    });
+
+    // Skill 节点（垂直居中排列在 Analyst 左侧）
+    const skillGap = 64;
+    const startY = pos.y - ((agentSkills.length - 1) * skillGap) / 2;
+    agentSkills.forEach((skName, i) => {
+      const nodeId = `skill_${skName}`;
+      if (!nodes.some((n) => n.id === nodeId)) {
+        const skMeta = skills.find((s) => s.name === skName);
+        batchNodes.push({
+          id: nodeId, type: 'skill',
+          position: { x: pos.x - 200, y: startY + i * skillGap },
+          data: {
+            skillName: skName, label: skName,
+            category: skMeta?.category || 'general',
+            description: skMeta?.description || skName,
+            params: {},
+          },
+        });
+      }
+      batchEdges.push({
+        id: `${nodeId}-${role}`, source: nodeId, target: role,
+        sourceHandle: 'right', targetHandle: 'left',
+      });
+    });
+
+    useWorkflowStore.setState((s) => ({
+      nodes: [...s.nodes, ...batchNodes],
+      edges: [...s.edges, ...batchEdges],
+    }));
+  };
+
+  /** 添加技能到画布 */
+  const addSkillToCanvas = (skill: SkillInfo) => {
+    if (nodes.some((n) => n.id === skill.name)) return;
+    const count = nodes.filter((n) => n.type === 'skill').length;
+    addNode({
+      id: skill.name, type: 'skill',
+      position: { x: 320, y: 300 + count * 100 },
+      data: { skillName: skill.name, label: skill.name, category: skill.category, description: skill.description, params: skill.params || {} },
+    });
+  };
+
+  /** 添加总结研判 */
+  const addSummarizer = () => {
+    if (nodes.some((n) => n.type === 'summarizer')) return;
     addNode({
       id: 'summarizer', type: 'summarizer',
-      position: { x: 100 + (count % 3) * 280, y: 100 + Math.floor(count / 3) * 200 + 200 },
+      position: { x: 620, y: 120 },
       data: { role: 'summarizer', label: '总结研判', skills: [] },
     });
   };
 
+  /** 添加自定义分析师 */
   const addCustomAgent = () => {
     const name = customName.trim();
     if (!name) return;
@@ -57,15 +143,12 @@ export function Sidebar() {
     const count = nodes.filter((n) => n.type === 'analyst').length;
     addNode({
       id, type: 'analyst',
-      position: { x: 100 + (count % 3) * 280, y: 100 + Math.floor(count / 3) * 200 },
+      position: { x: 320, y: 60 + count * 120 },
       data: { role: id, label: name, skills: ['stock_info', 'kline_data'], isCustom: true },
     });
     setCustomName('');
     setShowCustom(false);
   };
-
-  const hasSummarizer = nodes.some((n) => n.type === 'summarizer');
-  const hasAgents = nodes.some((n) => n.type === 'analyst');
 
   const handleSave = useCallback(async () => {
     if (!saveName.trim()) return;
@@ -83,205 +166,214 @@ export function Sidebar() {
     fetch('/api/workflows').then((r) => r.json()).then(useWorkflowStore.getState().setWorkflows).catch(console.error);
   }, []);
 
+  // 按类别分组技能
+  const skillsByCategory: Record<string, SkillInfo[]> = {};
+  skills.forEach((s) => {
+    if (!skillsByCategory[s.category]) skillsByCategory[s.category] = [];
+    skillsByCategory[s.category].push(s);
+  });
+
+  const SectionHeader = ({ section, label, icon }: { section: string; label: string; icon: string }) => (
+    <div
+      onClick={() => toggle(section)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0',
+        cursor: 'pointer', userSelect: 'none',
+      }}
+    >
+      <span style={{ fontSize: 10, color: 'var(--text-muted)', transition: 'transform 0.2s', transform: openSections[section] ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+      <span style={{ fontSize: 11 }}>{icon}</span>
+      <span style={{ color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, flex: 1 }}>{label}</span>
+    </div>
+  );
+
   return (
     <div style={{
       width: 220, background: 'var(--bg-panel)', borderRight: '1px solid var(--border)',
       padding: 12, overflowY: 'auto',
       backdropFilter: 'var(--blur)', WebkitBackdropFilter: 'var(--blur)',
     }}>
-      {/* Agent 拖拽区标题 */}
-      <div style={{
-        color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, marginBottom: 10,
-        textTransform: 'uppercase', letterSpacing: 0.5,
-      }}>
-        {t("sidebar.drag_agent")}
-      </div>
+      {/* ── 输入节点 ── */}
+      <SectionHeader section="input" label="输入" icon="◆" />
+      {openSections.input && (
+        <div
+          draggable
+          onDragStart={(e) => onDragStart(e, 'input:input:输入')}
+          onClick={addInputNode}
+          style={{
+            background: nodes.some((n) => n.type === 'input') ? 'var(--bg-input)' : 'var(--bg-card)',
+            border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', marginBottom: 6,
+            cursor: nodes.some((n) => n.type === 'input') ? 'default' : 'grab',
+            opacity: nodes.some((n) => n.type === 'input') ? 0.4 : 1,
+            fontSize: 12, color: 'var(--accent-green)', fontWeight: 500,
+          }}
+        >
+          ◆ 股票代码 + 市场
+        </div>
+      )}
 
-      {/* Agent 列表 */}
-      {agents.map((agent) => {
-        const color = STANCE_COLORS[agent.role] || '#8e8e93';
-        const alreadyAdded = nodes.some((n) => n.id === agent.role);
+      {/* ── 参数配置 ── */}
+      <SectionHeader section="config" label="参数配置" icon="⚙" />
+      {openSections.config && (
+        <div
+          draggable
+          onDragStart={(e) => onDragStart(e, 'config:config:参数配置')}
+          onClick={addConfigNode}
+          style={{
+            background: nodes.some((n) => n.type === 'config') ? 'var(--bg-input)' : 'var(--bg-card)',
+            border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', marginBottom: 6,
+            cursor: nodes.some((n) => n.type === 'config') ? 'default' : 'grab',
+            opacity: nodes.some((n) => n.type === 'config') ? 0.4 : 1,
+            fontSize: 12, color: 'var(--accent-orange)', fontWeight: 500,
+          }}
+        >
+          ⚙ K线周期 + 历史天数
+        </div>
+      )}
+
+      {/* ── 分析师 ── */}
+      <SectionHeader section="agents" label="分析师 Agent" icon="🤖" />
+      {openSections.agents && (
+        <>
+          {agents.map((agent) => {
+            const color = STANCE_COLORS[agent.role] || '#8e8e93';
+            const added = nodes.some((n) => n.id === agent.role);
+            return (
+              <div
+                key={agent.role}
+                draggable={!added}
+                onDragStart={(e) => onDragStart(e, `analyst:${agent.role}:${agent.name}`)}
+                onClick={() => addAgentToCanvas(agent.role)}
+                style={{
+                  background: added ? 'var(--bg-input)' : 'var(--bg-card)',
+                  border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', marginBottom: 4,
+                  cursor: added ? 'default' : 'grab', opacity: added ? 0.4 : 1,
+                  backdropFilter: 'var(--blur-light)', WebkitBackdropFilter: 'var(--blur-light)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
+                  <span style={{ color: 'var(--text)', fontSize: 12, fontWeight: 600 }}>{agent.name}</span>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* 自定义分析师 */}
+          {showCustom ? (
+            <div style={{
+              background: 'var(--bg-card)', border: '1px solid var(--border)',
+              borderRadius: 10, padding: '8px 12px', marginBottom: 4,
+            }}>
+              <input
+                autoFocus value={customName} onChange={(e) => setCustomName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addCustomAgent()}
+                placeholder={t("sidebar.input_name")}
+                style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', color: 'var(--text)', fontSize: 12, marginBottom: 6 }}
+              />
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button onClick={addCustomAgent} disabled={!customName.trim()} style={{ flex: 1, background: 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: 8, padding: '4px 0', fontSize: 11, fontWeight: 600, opacity: customName.trim() ? 1 : 0.5 }}>{t("sidebar.add")}</button>
+                <button onClick={() => { setShowCustom(false); setCustomName(''); }} style={{ flex: 1, background: 'var(--bg-input)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 0', fontSize: 11 }}>{t("sidebar.cancel")}</button>
+              </div>
+            </div>
+          ) : (
+            <div onClick={() => setShowCustom(true)} style={{
+              background: 'var(--bg-card)', border: '1px dashed var(--border-strong)', borderRadius: 10,
+              padding: '6px 12px', marginBottom: 4, cursor: 'pointer', textAlign: 'center',
+              color: 'var(--text-muted)', fontSize: 11,
+            }}>+ {t("sidebar.custom_agent")}</div>
+          )}
+        </>
+      )}
+
+      {/* ── 技能节点 ── */}
+      <SectionHeader section="skills" label="技能 Skill" icon="🧩" />
+      {openSections.skills && Object.entries(skillsByCategory).map(([cat, catSkills]) => {
+        const meta = CATEGORY_META[cat] || CATEGORY_META.general;
         return (
-          <div
-            key={agent.role}
-            draggable
-            onDragStart={(e) => onDragStart(e, 'analyst', agent.role, agent.name)}
-            onClick={() => addAgentToCanvas(agent.role)}
-            style={{
-              background: alreadyAdded ? 'var(--bg-input)' : 'var(--bg-card)',
-              border: '1px solid var(--border)',
-              borderRadius: 10, padding: '10px 12px', marginBottom: 6,
-              cursor: alreadyAdded ? 'default' : 'grab', opacity: alreadyAdded ? 0.4 : 1,
-              transition: 'all 0.2s',
-              backdropFilter: 'var(--blur-light)', WebkitBackdropFilter: 'var(--blur-light)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
-              <span style={{ color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>{agent.name}</span>
+          <div key={cat} style={{ marginBottom: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3, paddingLeft: 16 }}>
+              <span style={{ fontSize: 10 }}>{meta.icon}</span>
+              <span style={{ fontSize: 10, color: meta.color, fontWeight: 600 }}>{meta.label}</span>
             </div>
-            <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 3, marginLeft: 16 }}>
-              {agent.current_skills.length} {t("sidebar.skills_count")}
-            </div>
+            {catSkills.map((skill) => {
+              const added = nodes.some((n) => n.id === skill.name);
+              return (
+                <div
+                  key={skill.name}
+                  draggable={!added}
+                  onDragStart={(e) => onDragStart(e, `skill:${skill.name}:${skill.name}:${skill.category}:${skill.description}`)}
+                  onClick={() => addSkillToCanvas(skill)}
+                  style={{
+                    background: added ? 'var(--bg-input)' : 'var(--bg-card)',
+                    border: '1px solid var(--border)', borderRadius: 8, padding: '5px 10px', marginBottom: 2,
+                    marginLeft: 16, cursor: added ? 'default' : 'grab', opacity: added ? 0.4 : 1,
+                    fontSize: 11, color: 'var(--text-secondary)',
+                  }}
+                >
+                  {skill.name}
+                </div>
+              );
+            })}
           </div>
         );
       })}
 
-      {/* 自定义 Agent 区域 */}
-      {showCustom ? (
-        <div style={{
-          background: 'var(--bg-card)', border: '1px solid var(--border)',
-          borderRadius: 10, padding: '10px 12px', marginBottom: 6,
-          backdropFilter: 'var(--blur-light)', WebkitBackdropFilter: 'var(--blur-light)',
-        }}>
-          <input
-            autoFocus
-            value={customName}
-            onChange={(e) => setCustomName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addCustomAgent()}
-            placeholder={t("sidebar.input_name")}
-            style={{
-              width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)',
-              borderRadius: 8, padding: '5px 8px', color: 'var(--text)', fontSize: 12, marginBottom: 8,
-            }}
-          />
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button
-              onClick={addCustomAgent}
-              disabled={!customName.trim()}
-              style={{
-                flex: 1, background: 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: 8,
-                padding: '5px 0', fontSize: 12, cursor: 'pointer', fontWeight: 600,
-                opacity: customName.trim() ? 1 : 0.5,
-              }}
-            >{t("sidebar.add")}</button>
-            <button
-              onClick={() => { setShowCustom(false); setCustomName(''); }}
-              style={{
-                flex: 1, background: 'var(--bg-input)', color: 'var(--text-muted)', border: '1px solid var(--border)',
-                borderRadius: 8, padding: '5px 0', fontSize: 12, cursor: 'pointer',
-              }}
-            >{t("sidebar.cancel")}</button>
-          </div>
-        </div>
-      ) : (
+      {/* ── 总结研判 ── */}
+      <SectionHeader section="summarizer" label="总结研判" icon="✦" />
+      {openSections.summarizer && (
         <div
-          onClick={() => setShowCustom(true)}
+          draggable={!nodes.some((n) => n.type === 'summarizer')}
+          onDragStart={(e) => onDragStart(e, 'summarizer:summarizer:总结研判')}
+          onClick={addSummarizer}
           style={{
-            background: 'var(--bg-card)', border: '1px dashed var(--border-strong)', borderRadius: 10,
-            padding: '10px 12px', marginBottom: 6, cursor: 'pointer', textAlign: 'center',
-            color: 'var(--text-muted)', fontSize: 12,
-            backdropFilter: 'var(--blur-light)', WebkitBackdropFilter: 'var(--blur-light)',
+            background: nodes.some((n) => n.type === 'summarizer') ? 'var(--bg-input)' : 'var(--bg-card)',
+            border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', marginBottom: 6,
+            cursor: nodes.some((n) => n.type === 'summarizer') ? 'default' : 'grab',
+            opacity: nodes.some((n) => n.type === 'summarizer') ? 0.4 : 1,
           }}
         >
-          + {t("sidebar.custom_agent")}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-purple)' }} />
+            <span style={{ color: 'var(--text)', fontSize: 12, fontWeight: 600 }}>{t("sidebar.summarizer")}</span>
+          </div>
         </div>
       )}
 
-      {/* 总结研判节点 */}
-      <div
-        draggable
-        onDragStart={(e) => onDragStart(e, 'summarizer', 'summarizer', '总结研判')}
-        onClick={addSummarizerToCanvas}
-        style={{
-          background: hasSummarizer ? 'var(--bg-input)' : 'var(--bg-card)',
-          border: '1px solid var(--border)',
-          borderRadius: 10, padding: '10px 12px', marginBottom: 6,
-          cursor: hasSummarizer ? 'default' : 'grab', opacity: hasSummarizer ? 0.4 : 1,
-          transition: 'all 0.2s',
-          backdropFilter: 'var(--blur-light)', WebkitBackdropFilter: 'var(--blur-light)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-purple)' }} />
-          <span style={{ color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>{t("sidebar.summarizer")}</span>
-        </div>
-        <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 3, marginLeft: 16 }}>
-          {t("sidebar.summarizer_desc")}
-        </div>
-      </div>
-
-      {/* 保存/导出按钮 */}
-      {hasAgents && (
-        <div style={{ display: 'flex', gap: 6, marginBottom: 6, marginTop: 8 }}>
+      {/* ── 保存/导出 ── */}
+      {nodes.some((n) => n.type === 'analyst') && (
+        <div style={{ display: 'flex', gap: 6, marginTop: 8, marginBottom: 6 }}>
           {showSave ? (
-            <div style={{
-              background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10,
-              padding: '10px 12px', width: '100%',
-              backdropFilter: 'var(--blur-light)', WebkitBackdropFilter: 'var(--blur-light)',
-            }}>
-              <input
-                autoFocus
-                value={saveName}
-                onChange={(e) => setSaveName(e.target.value)}
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', width: '100%' }}>
+              <input autoFocus value={saveName} onChange={(e) => setSaveName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSave()}
                 placeholder={t("sidebar.input_workflow_name")}
-                style={{
-                  width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)',
-                  borderRadius: 8, padding: '5px 8px', color: 'var(--text)', fontSize: 12, marginBottom: 8,
-                }}
+                style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', color: 'var(--text)', fontSize: 12, marginBottom: 6 }}
               />
-              <div style={{ display: 'flex', gap: 6 }}>
-                <button onClick={handleSave} disabled={!saveName.trim()} style={{
-                  flex: 1, background: 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: 8,
-                  padding: '5px 0', fontSize: 12, cursor: 'pointer', fontWeight: 600,
-                  opacity: saveName.trim() ? 1 : 0.5,
-                }}>{t("sidebar.save")}</button>
-                <button onClick={() => { setShowSave(false); setSaveName(''); }} style={{
-                  flex: 1, background: 'var(--bg-input)', color: 'var(--text-muted)', border: '1px solid var(--border)',
-                  borderRadius: 8, padding: '5px 0', fontSize: 12, cursor: 'pointer',
-                }}>{t("sidebar.cancel")}</button>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button onClick={handleSave} disabled={!saveName.trim()} style={{ flex: 1, background: 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: 8, padding: '4px 0', fontSize: 11, fontWeight: 600, opacity: saveName.trim() ? 1 : 0.5 }}>{t("sidebar.save")}</button>
+                <button onClick={() => { setShowSave(false); setSaveName(''); }} style={{ flex: 1, background: 'var(--bg-input)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 0', fontSize: 11 }}>{t("sidebar.cancel")}</button>
               </div>
             </div>
           ) : (
             <>
-              <button
-                onClick={() => setShowSave(true)}
-                style={{
-                  flex: 1, background: 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: 8,
-                  padding: '6px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(0, 122, 255, 0.25)',
-                }}
-              >{t("sidebar.save")}</button>
-              <button
-                onClick={exportWorkflow}
-                style={{
-                  flex: 1, background: 'var(--bg-card)', color: 'var(--text)', border: '1px solid var(--border)',
-                  borderRadius: 8, padding: '6px 0', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  backdropFilter: 'var(--blur-light)', WebkitBackdropFilter: 'var(--blur-light)',
-                }}
-              >{t("sidebar.export")}</button>
-              <button
-                onClick={refreshTemplates}
-                title={t("sidebar.refresh")}
-                style={{
-                  background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)',
-                  borderRadius: 8, padding: '6px 8px', fontSize: 12, cursor: 'pointer',
-                }}
-              >↻</button>
+              <button onClick={() => setShowSave(true)} style={{ flex: 1, background: 'var(--accent-blue)', color: '#fff', border: 'none', borderRadius: 8, padding: '5px 0', fontSize: 11, fontWeight: 600, boxShadow: '0 2px 8px rgba(0,122,255,0.25)' }}>{t("sidebar.save")}</button>
+              <button onClick={exportWorkflow} style={{ flex: 1, background: 'var(--bg-card)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 0', fontSize: 11, fontWeight: 600 }}>{t("sidebar.export")}</button>
+              <button onClick={refreshTemplates} title={t("sidebar.refresh")} style={{ background: 'var(--bg-card)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 8, padding: '5px 8px', fontSize: 11 }}>↻</button>
             </>
           )}
         </div>
       )}
 
-      {/* 分割线 */}
-      <div style={{ borderTop: '1px solid var(--border)', margin: '14px 0' }} />
-
-      {/* 预置模板区标题 */}
-      <div style={{
-        color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, marginBottom: 10,
-        textTransform: 'uppercase', letterSpacing: 0.5,
-      }}>
-        {t("sidebar.templates")}
-      </div>
-      <WorkflowTemplates />
+      {/* ── 分割线 + 预置模板 ── */}
+      <div style={{ borderTop: '1px solid var(--border)', margin: '12px 0' }} />
+      <SectionHeader section="templates" label="预置模板" icon="📋" />
+      {openSections.templates && <WorkflowTemplates />}
     </div>
   );
 }
 
-/**
- * WorkflowTemplates — 预置工作流模板列表
- */
+/** 预置工作流模板列表 */
 function WorkflowTemplates() {
   const { workflows, setWorkflows, loadFromTemplate, agents } = useWorkflowStore();
 
@@ -299,21 +391,14 @@ function WorkflowTemplates() {
           onClick={() => agents.length > 0 && loadFromTemplate(wf)}
           style={{
             background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10,
-            padding: '10px 12px', marginBottom: 6, cursor: 'pointer',
-            backdropFilter: 'var(--blur-light)', WebkitBackdropFilter: 'var(--blur-light)',
+            padding: '8px 12px', marginBottom: 4, cursor: 'pointer',
             transition: 'all 0.2s',
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = 'var(--accent-blue)';
-            e.currentTarget.style.boxShadow = '0 2px 12px rgba(0, 122, 255, 0.1)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = 'var(--border)';
-            e.currentTarget.style.boxShadow = 'none';
-          }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,122,255,0.1)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
         >
-          <div style={{ color: 'var(--text)', fontSize: 13, fontWeight: 600 }}>{wf.name}</div>
-          <div style={{ color: 'var(--text-muted)', fontSize: 11, marginTop: 2 }}>{wf.description}</div>
+          <div style={{ color: 'var(--text)', fontSize: 12, fontWeight: 600 }}>{wf.name}</div>
+          <div style={{ color: 'var(--text-muted)', fontSize: 10, marginTop: 2 }}>{wf.description}</div>
         </div>
       ))}
     </>
