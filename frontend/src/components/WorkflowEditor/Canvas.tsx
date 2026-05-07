@@ -121,11 +121,11 @@ function FlowCanvas() {
       onPaneClick={onPaneClick}
       nodeTypes={nodeTypes}
       fitView
-      style={{ background: 'var(--bg)' }}
-      defaultEdgeOptions={{ type: 'default', animated: true, style: { stroke: '#6366f1', strokeWidth: 2 } }}
+      style={{ background: 'transparent' }}
+      defaultEdgeOptions={{ type: 'default', animated: true, style: { stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1.5 } }}
     >
-      {/* 背景网格 */}
-      <Background color="var(--border)" gap={20} />
+      {/* 背景网格 — subtle dots */}
+      <Background color="rgba(255,255,255,0.06)" gap={20} size={1} />
       {/* 缩放控件 */}
       <Controls />
       {/* 小地图 — 按角色着色 */}

@@ -19,7 +19,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   static getDerivedStateFromError(error: Error) { return { error }; }
   render() {
     if (this.state.error) {
-      return <div style={{ padding: 20, color: '#ef4444', fontSize: 13 }}>组件加载失败: {this.state.error.message}</div>;
+      return <div style={{ padding: 20, color: 'var(--accent-red)', fontSize: 13 }}>组件加载失败: {this.state.error.message}</div>;
     }
     return this.props.children;
   }
@@ -45,17 +45,22 @@ export default function App() {
       <ControlBar />
 
       {/* 标签页切换栏 */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--bg-panel)' }}>
+      <div style={{
+        display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--bg-panel)',
+        backdropFilter: 'var(--blur)', WebkitBackdropFilter: 'var(--blur)',
+      }}>
         {(['workflow', 'report', 'history', 'watchlist', 'schedule'] as Tab[]).map((tabKey) => (
           <button
             key={tabKey}
             onClick={() => setTab(tabKey)}
             style={{
-              padding: '8px 24px', fontSize: 13, fontWeight: 600,
-              background: tab === tabKey ? 'var(--bg-input)' : 'transparent',
+              padding: '8px 24px', fontSize: 13, fontWeight: tab === tabKey ? 600 : 400,
+              background: tab === tabKey ? 'var(--bg-elevated)' : 'transparent',
               color: tab === tabKey ? 'var(--text)' : 'var(--text-muted)',
-              border: 'none', borderBottom: tab === tabKey ? '2px solid #6366f1' : '2px solid transparent',
+              border: 'none',
+              borderBottom: tab === tabKey ? '2px solid var(--accent-blue)' : '2px solid transparent',
               cursor: 'pointer',
+              transition: 'all 0.2s',
             }}
           >
             {t(tabKey === 'workflow' ? 'tab.workflow' : tabKey === 'report' ? 'tab.report' : tabKey === 'history' ? 'tab.history' : tabKey === 'watchlist' ? 'tab.watchlist' : 'tab.schedule')}
