@@ -37,9 +37,13 @@ export function ControlBar() {
     <div style={{
       display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px',
       background: 'var(--bg-panel)', borderBottom: '1px solid var(--border)',
+      backdropFilter: 'var(--blur)', WebkitBackdropFilter: 'var(--blur)',
     }}>
       {/* 应用标题 */}
-      <span style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>🤖 Vibe Trading</span>
+      <span style={{
+        fontSize: 16, fontWeight: 700, color: 'var(--text)',
+        letterSpacing: -0.3,
+      }}>TradingFlow</span>
 
       {/* 股票代码输入框 */}
       <input
@@ -47,8 +51,9 @@ export function ControlBar() {
         onChange={(e) => setSelectedSymbol(e.target.value)}
         placeholder={t("control.placeholder")}
         style={{
-          background: 'var(--bg-input)', border: '1px solid var(--border-strong)', borderRadius: 6,
+          background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8,
           padding: '6px 12px', color: 'var(--text)', fontSize: 13, width: 200,
+          backdropFilter: 'var(--blur-light)', WebkitBackdropFilter: 'var(--blur-light)',
         }}
       />
 
@@ -57,8 +62,9 @@ export function ControlBar() {
         value={selectedMarket}
         onChange={(e) => setSelectedMarket(e.target.value)}
         style={{
-          background: 'var(--bg-input)', border: '1px solid var(--border-strong)', borderRadius: 6,
+          background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8,
           padding: '6px 12px', color: 'var(--text)', fontSize: 13,
+          backdropFilter: 'var(--blur-light)', WebkitBackdropFilter: 'var(--blur-light)',
         }}
       >
         <option value="a_share">{t("market.a_share")}</option>
@@ -71,10 +77,13 @@ export function ControlBar() {
         onClick={handleAnalyze}
         disabled={isAnalyzing || !selectedSymbol.trim() || analystRoles.length === 0}
         style={{
-          background: isAnalyzing ? 'var(--border-strong)' : '#6366f1',
-          color: '#fff', border: 'none', borderRadius: 6, padding: '6px 20px',
+          background: isAnalyzing ? 'var(--bg-input)' : 'var(--accent-blue)',
+          color: isAnalyzing ? 'var(--text-muted)' : '#fff',
+          border: 'none', borderRadius: 8, padding: '6px 20px',
           fontSize: 13, fontWeight: 600, cursor: isAnalyzing ? 'default' : 'pointer',
           opacity: isAnalyzing ? 0.6 : 1,
+          boxShadow: isAnalyzing ? 'none' : '0 2px 8px rgba(0, 122, 255, 0.3)',
+          transition: 'all 0.2s',
         }}
       >
         {isAnalyzing ? t("control.analyzing") : t("control.start")}
@@ -92,12 +101,14 @@ export function ControlBar() {
         onClick={toggle}
         title={theme === 'dark' ? t("control.theme_light") : t("control.theme_dark")}
         style={{
-          background: 'var(--bg-input)', border: '1px solid var(--border-strong)', borderRadius: 6,
-          padding: '4px 10px', fontSize: 16, cursor: 'pointer', lineHeight: 1,
-          color: 'var(--text)',
+          background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8,
+          padding: '4px 10px', fontSize: 14, cursor: 'pointer', lineHeight: 1,
+          color: 'var(--text-secondary)',
+          backdropFilter: 'var(--blur-light)', WebkitBackdropFilter: 'var(--blur-light)',
+          transition: 'background 0.2s',
         }}
       >
-        {theme === 'dark' ? '☀️' : '🌙'}
+        {theme === 'dark' ? '☀' : '☾'}
       </button>
     </div>
   );

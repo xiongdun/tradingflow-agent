@@ -10,14 +10,12 @@ import './pulse.css';
 
 /**
  * AgentNodeComponent — React Flow 自定义分析师节点
- * 展示角色名称、颜色标识、技能标签（最多显示 3 个，超出显示 +N）
- * 上下各有一个连接手柄（Handle），用于与其他节点连线
  */
 function AgentNodeComponent({ data, selected }: NodeProps) {
   const role = (data as any).role as string;
   const label = (data as any).label as string;
   const skills = (data as any).skills as string[];
-  const color = STANCE_COLORS[role] || '#6b7280';  // 未知角色用灰色
+  const color = STANCE_COLORS[role] || '#8e8e93';
   const analyzing = useWorkflowStore((s) => s.analyzingAgents.includes(role));
   const [showModal, setShowModal] = useState(false);
 
@@ -28,42 +26,44 @@ function AgentNodeComponent({ data, selected }: NodeProps) {
       onClick={() => setShowModal(true)}
       style={{
         background: 'var(--bg-card)',
-        border: `2px solid ${selected ? 'var(--text)' : color}`,
+        border: `1px solid ${selected ? color : 'var(--border)'}`,
         borderRadius: 12,
         padding: '12px 16px',
         minWidth: 180,
+        backdropFilter: 'var(--blur-light)',
+        WebkitBackdropFilter: 'var(--blur-light)',
         boxShadow: analyzing
-          ? `0 0 12px ${color}aa, 0 0 24px ${color}44`
-          : selected ? `0 0 16px ${color}88` : '0 2px 8px rgba(0,0,0,0.3)',
+          ? `0 0 20px ${color}44, 0 4px 16px rgba(0,0,0,0.2)`
+          : selected ? `0 0 16px ${color}33, 0 4px 16px rgba(0,0,0,0.15)` : 'var(--shadow-card)',
+        transition: 'box-shadow 0.3s, border-color 0.2s',
       }}
     >
       {/* 顶部连接手柄（输入端） */}
-      <Handle type="target" position={Position.Top} style={{ background: color }} />
+      <Handle type="target" position={Position.Top} style={{ background: color, width: 10, height: 10, border: '2px solid var(--bg-card)' }} />
 
       {/* 角色名称行：颜色圆点 + 名称 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <div style={{ width: 10, height: 10, borderRadius: '50%', background: color }} />
-        <span style={{ fontWeight: 700, color: 'var(--text)', fontSize: 14 }}>{label}</span>
+        <span style={{ fontWeight: 600, color: 'var(--text)', fontSize: 14 }}>{label}</span>
       </div>
 
       {/* 技能标签列表（最多显示 3 个） */}
       <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
         {skills?.slice(0, 3).map((s: string) => (
           <span key={s} style={{
-            display: 'inline-block', background: `${color}22`, color, borderRadius: 4,
-            padding: '1px 6px', marginRight: 4, marginBottom: 2, fontSize: 10,
+            display: 'inline-block', background: `${color}18`, color, borderRadius: 6,
+            padding: '2px 8px', marginRight: 4, marginBottom: 2, fontSize: 10, fontWeight: 500,
           }}>{s}</span>
         ))}
-        {skills && skills.length > 3 && <span style={{ color: 'var(--text-muted)' }}>+{skills.length - 3}</span>}
+        {skills && skills.length > 3 && <span style={{ color: 'var(--text-muted)', fontSize: 10 }}>+{skills.length - 3}</span>}
       </div>
 
       {/* 底部连接手柄（输出端） */}
-      <Handle type="source" position={Position.Bottom} style={{ background: color }} />
+      <Handle type="source" position={Position.Bottom} style={{ background: color, width: 10, height: 10, border: '2px solid var(--bg-card)' }} />
     </div>
     {showModal && <AgentDetailModal role={role} label={label} color={color} onClose={() => setShowModal(false)} />}
     </>
   );
 }
 
-// 使用 memo 避免无关状态变化导致的重渲染
 export const AgentNode = memo(AgentNodeComponent);

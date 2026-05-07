@@ -49,9 +49,11 @@ export function SkillPicker({ role, currentSkills, onUpdate }: Props) {
     <div style={{ maxHeight: 300, overflowY: 'auto' }}>
       {/* 按类别分组渲染技能列表 */}
       {categories.map((cat) => (
-        <div key={cat} style={{ marginBottom: 12 }}>
+        <div key={cat} style={{ marginBottom: 10 }}>
           {/* 类别标题 */}
-          <div style={{ color: 'var(--text-secondary)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>
+          <div style={{
+            color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, marginBottom: 4,
+          }}>
             {cat}
           </div>
           {/* 该类别下的技能复选框列表 */}
@@ -67,7 +69,7 @@ export function SkillPicker({ role, currentSkills, onUpdate }: Props) {
                 type="checkbox"
                 checked={selected.has(skill.name)}
                 onChange={() => toggle(skill.name)}
-                style={{ accentColor: '#3b82f6' }}
+                style={{ accentColor: 'var(--accent-blue)' }}
               />
               <span>{skill.name}</span>
             </label>
