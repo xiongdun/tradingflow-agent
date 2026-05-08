@@ -14,6 +14,7 @@ from backend.skills.registry import skill
     description="解读财报三表（利润表/资产负债表/现金流量表），计算健康评分和风险警示",
     markets=["a_share", "us_stock"],
     category="fundamental",
+    label="财报解读",
 )
 def get_financial_report(symbol: str, market: str) -> dict[str, Any]:
     """获取并分析股票的财务报表数据"""

@@ -1,7 +1,7 @@
 // frontend/src/App.tsx
 // 应用根组件 — 主布局：顶部控制栏 + 标签页切换（工作流编排 / 分析结果）
 
-import { useState, useEffect, Component, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, Component, type ReactNode } from 'react';
 import { Sidebar } from './components/WorkflowEditor/Sidebar';
 import { WorkflowEditorCanvas } from './components/WorkflowEditor/Canvas';
 import { NodeConfig } from './components/WorkflowEditor/NodeConfig';
@@ -12,6 +12,63 @@ import { HistoryPanel } from './components/History/HistoryPanel';
 import { t, loadLocale } from './i18n';
 import { WatchlistPanel} from './components/Watchlist/WatchlistPanel';
 import { SchedulePanel } from './components/Schedule/SchedulePanel';
+
+/** 可拖拽调整宽度的面板容器 */
+function ResizablePanel({
+  children, defaultWidth, minWidth = 160, maxWidth = 440, position = 'left',
+}: {
+  children: React.ReactNode;
+  defaultWidth: number;
+  minWidth?: number;
+  maxWidth?: number;
+  position?: 'left' | 'right';
+}) {
+  const [width, setWidth] = useState(defaultWidth);
+  const dragging = useRef(false);
+  const startX = useRef(0);
+  const startW = useRef(0);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragging.current = true;
+    startX.current = e.clientX;
+    startW.current = width;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const onMove = (ev: MouseEvent) => {
+      if (!dragging.current) return;
+      const dx = ev.clientX - startX.current;
+      const newW = Math.min(maxWidth, Math.max(minWidth, position === 'left' ? startW.current + dx : startW.current - dx));
+      setWidth(newW);
+    };
+    const onUp = () => {
+      dragging.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [width, minWidth, maxWidth, position]);
+
+  return (
+    <div style={{ width, minWidth, flexShrink: 0, display: 'flex', position: 'relative', height: '100%' }}>
+      <div style={{ flex: 1, overflow: 'hidden' }}>{children}</div>
+      <div
+        onMouseDown={onMouseDown}
+        style={{
+          width: 5, cursor: 'col-resize', flexShrink: 0,
+          background: 'transparent', transition: 'background 0.2s',
+          zIndex: 10,
+        }}
+        onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'rgba(99,102,241,0.3)'; }}
+        onMouseLeave={(e) => { if (!dragging.current) (e.target as HTMLElement).style.background = 'transparent'; }}
+      />
+    </div>
+  );
+}
 
 /** 错误边界 — 子组件崩溃时显示兜底 UI，不拖垮整个页面 */
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -72,14 +129,18 @@ export default function App() {
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {tab === 'workflow' ? (
           <>
-            {/* 左侧：Agent 拖拽侧边栏 */}
-            <Sidebar />
+            {/* 左侧：Agent 拖拽侧边栏（可拖拽调整宽度） */}
+            <ResizablePanel defaultWidth={240} minWidth={180} maxWidth={400} position="left">
+              <Sidebar />
+            </ResizablePanel>
             {/* 中间：React Flow 画布 */}
             <div style={{ flex: 1, position: 'relative' }}>
               <WorkflowEditorCanvas />
             </div>
-            {/* 右侧：节点配置面板 */}
-            <NodeConfig />
+            {/* 右侧：节点配置面板（可拖拽调整宽度） */}
+            <ResizablePanel defaultWidth={320} minWidth={240} maxWidth={500} position="right">
+              <NodeConfig />
+            </ResizablePanel>
           </>
         ) : tab === 'report' ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

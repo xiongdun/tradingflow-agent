@@ -13,6 +13,7 @@ from backend.skills.registry import skill
     description="分析涨停板数据：是否涨停、连板天数、涨停原因、炸板率、同板块涨停股",
     markets=["a_share"],
     category="sentiment",
+    label="涨停分析",
 )
 def get_limit_up_analysis(symbol: str, market: str = "a_share") -> dict[str, Any]:
     """分析股票的涨停板状态和相关数据"""

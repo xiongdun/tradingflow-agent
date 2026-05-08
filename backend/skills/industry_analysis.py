@@ -13,6 +13,7 @@ from backend.skills.registry import skill
     description="综合行业分析：行业排名、板块资金流向、同行业对比、行业趋势",
     markets=["a_share", "h_stock", "us_stock"],
     category="fundamental",
+    label="行业分析",
 )
 def analyze_industry(symbol: str, market: str) -> dict[str, Any]:
     """获取股票所属行业的综合分析数据"""

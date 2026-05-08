@@ -28,6 +28,9 @@ const CATEGORY_ICONS: Record<string, string> = {
 function SkillNodeComponent({ data, selected }: NodeProps) {
   const d = data as any;
   const color = CATEGORY_COLORS[d.category] || '#8e8e93';
+  // 中文名优先显示，英文名作为副标题
+  const cnName = d.label || d.description || d.skillName;
+  const enName = d.skillName || '';
 
   return (
     <div
@@ -50,17 +53,19 @@ function SkillNodeComponent({ data, selected }: NodeProps) {
       <Handle type="target" id="left" position={Position.Left}
         style={{ background: color, width: 12, height: 12, border: '2px solid var(--bg-card)' }} />
 
-      {/* 标题行：类别图标 + 名称 */}
+      {/* 标题行：类别图标 + 中文名 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         <span style={{ fontSize: 12 }}>{CATEGORY_ICONS[d.category] || '⚙️'}</span>
-        <span style={{ fontWeight: 600, color: 'var(--text)', fontSize: 12, flex: 1 }}>{d.label}</span>
+        <span style={{ fontWeight: 600, color: 'var(--text)', fontSize: 12, flex: 1 }}>{cnName}</span>
         <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
       </div>
 
-      {/* 技能标识（等宽字体） */}
-      <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'monospace', marginTop: 2 }}>
-        {d.skillName}
-      </div>
+      {/* 英文技能标识（等宽字体） */}
+      {enName && enName !== cnName && (
+        <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'monospace', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {enName}
+        </div>
+      )}
 
       {/* 右侧输出：analyst 节点连接 */}
       <Handle type="source" id="right" position={Position.Right}

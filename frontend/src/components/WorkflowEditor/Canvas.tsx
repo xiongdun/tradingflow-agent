@@ -1,7 +1,7 @@
 // frontend/src/components/WorkflowEditor/Canvas.tsx
 // 工作流画布 — React Flow 拖拽式画布，支持节点拖放、连线、缩放、小地图
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ReactFlow,
   Background,
@@ -19,6 +19,7 @@ import { SummarizerNode } from './SummarizerNode';
 import { SkillNode } from './SkillNode';
 import { InputNode } from './InputNode';
 import { ConfigNode } from './ConfigNode';
+import { TradingNode } from './TradingNode';
 
 // 注册所有自定义节点类型
 const nodeTypes = {
@@ -27,14 +28,17 @@ const nodeTypes = {
   skill: SkillNode,
   input: InputNode,
   config: ConfigNode,
+  trading: TradingNode,
 };
 
 /** 连接规则：定义哪些节点类型之间允许连线 */
 const CONNECTION_RULES: Record<string, string[]> = {
-  input:   ['analyst', 'skill'],
-  config:  ['skill'],
-  skill:   ['analyst'],
-  analyst: ['summarizer'],
+  input:      ['analyst', 'skill'],
+  config:     ['skill'],
+  skill:      ['analyst'],
+  analyst:    ['summarizer'],
+  summarizer: ['trading'],
+  trading:    [],
 };
 
 /**
@@ -43,11 +47,12 @@ const CONNECTION_RULES: Record<string, string[]> = {
 function FlowCanvas() {
   const {
     nodes, edges, setEdges, onNodesChange, onEdgesChange,
-    addNode, setSelectedNodeId, agents, skills,
+    addNode, setSelectedNodeId, updateNodeData, agents, skills,
   } = useWorkflowStore();
   const reactFlow = useReactFlow();
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
 
-  /** 连线回调 */
+  /** 连线回调 — skill→analyst 连线时自动将 skill 加入 analyst 的 skills 列表 */
   const onConnect = useCallback(
     (conn: Connection) => {
       if (conn.source && conn.target) {
@@ -58,9 +63,20 @@ function FlowCanvas() {
           sourceHandle: conn.sourceHandle,
           targetHandle: conn.targetHandle,
         }]);
+
+        // skill → analyst/trading：将 skill 名称加入目标节点的 skills 列表
+        const sourceNode = nodes.find((n) => n.id === conn.source);
+        const targetNode = nodes.find((n) => n.id === conn.target);
+        if (sourceNode?.type === 'skill' && (targetNode?.type === 'analyst' || targetNode?.type === 'trading')) {
+          const skillName = (sourceNode.data as any).skillName;
+          const currentSkills: string[] = (targetNode.data as any).skills || [];
+          if (skillName && !currentSkills.includes(skillName)) {
+            updateNodeData(targetNode.id, { skills: [...currentSkills, skillName] });
+          }
+        }
       }
     },
-    [edges, setEdges],
+    [edges, setEdges, nodes, updateNodeData],
   );
 
   /** 连接验证 */
@@ -137,7 +153,7 @@ function FlowCanvas() {
               position: { x: position.x - 200, y: startY + i * skillGap },
               data: {
                 skillName: skName,
-                label: skName,
+                label: skMeta?.label || skName,
                 category: skMeta?.category || 'general',
                 description: skMeta?.description || skName,
                 params: {},
@@ -197,23 +213,59 @@ function FlowCanvas() {
     [reactFlow, addNode],
   );
 
+  /** 边变更回调 — 删除 skill→analyst 边时同步移除 analyst 的 skill */
+  const handleEdgesChange = useCallback(
+    (changes: any[]) => {
+      // 检测删除的边
+      changes.forEach((c: any) => {
+        if (c.type === 'remove') {
+          const edge = edges.find((e) => e.id === c.id);
+          if (edge) {
+            const src = nodes.find((n) => n.id === edge.source);
+            const tgt = nodes.find((n) => n.id === edge.target);
+            if (src?.type === 'skill' && (tgt?.type === 'analyst' || tgt?.type === 'trading')) {
+              const skillName = (src.data as any).skillName;
+              const currentSkills: string[] = (tgt.data as any).skills || [];
+              if (skillName && currentSkills.includes(skillName)) {
+                updateNodeData(tgt.id, { skills: currentSkills.filter((s) => s !== skillName) });
+              }
+            }
+          }
+        }
+      });
+      onEdgesChange(changes);
+    },
+    [edges, nodes, onEdgesChange, updateNodeData],
+  );
+
   const onNodeClick = useCallback((_: any, node: any) => {
     setSelectedNodeId(node.id);
+    setSelectedEdgeId(null);
   }, [setSelectedNodeId]);
+
+  const onEdgeClick = useCallback((_: any, edge: any) => {
+    setSelectedEdgeId(edge.id);
+    setSelectedNodeId(null);
+  }, []);
 
   const onPaneClick = useCallback(() => {
     setSelectedNodeId(null);
-  }, [setSelectedNodeId]);
+    setSelectedEdgeId(null);
+  }, []);
 
-  // 为每条边设置 inline style：skill→agent 用虚线，其余实线
+  // 为每条边设置 inline style：skill→agent 用虚线，其余实线，选中高亮
   const styledEdges = edges.map((e) => {
     const srcNode = nodes.find((n) => n.id === e.source);
     const isSkillEdge = srcNode?.type === 'skill';
+    const isSelected = e.id === selectedEdgeId;
     return {
       ...e,
+      selected: isSelected,
       style: {
-        stroke: 'rgba(120,160,255,0.35)',
-        strokeWidth: 2,
+        stroke: isSelected ? '#6366f1' : 'rgba(120,160,255,0.35)',
+        strokeWidth: isSelected ? 3 : 2,
+        filter: isSelected ? 'drop-shadow(0 0 6px rgba(99,102,241,0.6))' : 'none',
+        transition: 'stroke 0.2s, stroke-width 0.2s, filter 0.2s',
         ...(isSkillEdge ? { strokeDasharray: '6 4' } : {}),
       },
     };
@@ -224,11 +276,12 @@ function FlowCanvas() {
       nodes={nodes}
       edges={styledEdges}
       onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
+      onEdgesChange={handleEdgesChange}
       onConnect={onConnect}
       onDrop={onDrop}
       onDragOver={onDragOver}
       onNodeClick={onNodeClick}
+      onEdgeClick={onEdgeClick}
       onPaneClick={onPaneClick}
       isValidConnection={isValidConnection}
       nodeTypes={nodeTypes}

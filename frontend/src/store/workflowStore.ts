@@ -141,8 +141,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
    * 布局：Input(最左) → Skills(中左) → Analysts(中间竖排) → Summarizer(右)
    */
   loadFromTemplate: (template) => {
-    const { agents } = get();
-    const gap = 120;
+    const { agents, skills } = get();
+    const gap = 140;
 
     // 输入节点（最左侧）
     const inputNode: Node = {
@@ -152,12 +152,20 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       data: { label: '输入', symbol: '', market: 'a_share' },
     };
 
-    // 收集所有技能（去重）
-    const allSkills = new Map<string, { category: string; description: string }>();
+    // 收集所有技能（去重），从 store 的 skills 数组中查找真实的 category、description 和 label
+    const skillMetaMap = new Map(skills.map((s) => [s.name, s]));
+    const allSkills = new Map<string, { category: string; description: string; label: string }>();
     template.agents.forEach((role) => {
       const agent = agents.find((a) => a.role === role);
       (agent?.current_skills || []).forEach((sk) => {
-        if (!allSkills.has(sk)) allSkills.set(sk, { category: 'general', description: sk });
+        if (!allSkills.has(sk)) {
+          const meta = skillMetaMap.get(sk);
+          allSkills.set(sk, {
+            category: meta?.category || 'general',
+            description: meta?.description || sk,
+            label: meta?.label || sk,
+          });
+        }
       });
     });
 
@@ -166,29 +174,43 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const skillNodes: Node[] = skillNames.map((sk, i) => ({
       id: `skill_${sk}`,
       type: 'skill',
-      position: { x: 300, y: 20 + i * 70 },
-      data: { skillName: sk, label: sk, category: allSkills.get(sk)!.category, description: allSkills.get(sk)!.description, params: {} },
+      position: { x: 400, y: 20 + i * 70 },
+      data: { skillName: sk, label: allSkills.get(sk)!.label, category: allSkills.get(sk)!.category, description: allSkills.get(sk)!.description, params: {} },
     }));
 
-    // 分析师节点竖排（中间）
-    const analystNodes: Node[] = template.agents.map((role, i) => {
+    // 分析师节点竖排（中间）— 排除 trading，它放在总结之后
+    const analystRoles = template.agents.filter((r) => r !== 'trading');
+    const analystNodes: Node[] = analystRoles.map((role, i) => {
       const agent = agents.find((a) => a.role === role);
       return {
         id: role,
         type: 'analyst',
-        position: { x: 560, y: 60 + i * gap },
+        position: { x: 760, y: 60 + i * gap },
         data: { role, label: agent?.name || role, skills: agent?.current_skills || [] },
       };
     });
 
-    // 总结研判节点（最右侧居中）
-    const totalHeight = (template.agents.length - 1) * gap;
+    // 总结研判节点
+    const totalHeight = (analystRoles.length - 1) * gap;
     const summarizerNode: Node = {
       id: 'summarizer',
       type: 'summarizer',
-      position: { x: 820, y: 60 + totalHeight / 2 },
+      position: { x: 1120, y: 60 + totalHeight / 2 },
       data: { role: 'summarizer', label: '总结研判', skills: [] },
     };
+
+    // 交易执行节点（总结之后，最右侧）
+    const tradingRole = template.agents.find((r) => r === 'trading');
+    let tradingNode: Node | null = null;
+    if (tradingRole) {
+      const agent = agents.find((a) => a.role === tradingRole);
+      tradingNode = {
+        id: tradingRole,
+        type: 'trading',
+        position: { x: 1480, y: 60 + totalHeight / 2 },
+        data: { role: tradingRole, label: agent?.name || '交易执行', skills: agent?.current_skills || [] },
+      };
+    }
 
     // 边：Input → 每个 Analyst
     const inputEdges: Edge[] = template.agents.map((role) => ({
@@ -215,7 +237,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     });
 
     // 边：每个 Analyst → Summarizer
-    const summaryEdges: Edge[] = template.agents.map((role) => ({
+    const summaryEdges: Edge[] = analystRoles.map((role) => ({
       id: `${role}-summarizer`,
       source: role,
       target: 'summarizer',
@@ -223,16 +245,32 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       targetHandle: 'left',
     }));
 
+    // 边：Summarizer → Trading（如果存在交易节点）
+    const tradingEdges: Edge[] = tradingNode ? [{
+      id: 'summarizer-trading',
+      source: 'summarizer',
+      target: 'trading',
+      sourceHandle: 'right',
+      targetHandle: 'left',
+    }] : [];
+
+    // 收集所有需要的技能节点（仅分析师引用的）
+    const neededSkillNames = new Set<string>();
+    analystRoles.forEach((role) => {
+      const agent = agents.find((a) => a.role === role);
+      (agent?.current_skills || []).forEach((sk) => neededSkillNames.add(sk));
+    });
+
     set({
-      nodes: [inputNode, ...skillNodes, ...analystNodes, summarizerNode],
-      edges: [...inputEdges, ...skillEdges, ...summaryEdges],
+      nodes: [inputNode, ...skillNodes.filter((n) => neededSkillNames.has((n.data as any).skillName)), ...analystNodes, summarizerNode, ...(tradingNode ? [tradingNode] : [])],
+      edges: [...inputEdges, ...skillEdges, ...summaryEdges, ...tradingEdges],
     });
   },
 
   /** 从当前画布节点构建工作流定义 */
   _buildWorkflowDefinition: (name: string) => {
     const { nodes } = get();
-    const agentNodes = nodes.filter((n) => n.type === 'analyst');
+    const agentNodes = nodes.filter((n) => n.type === 'analyst' || n.type === 'trading');
     const skillNodes = nodes.filter((n) => n.type === 'skill');
     const inputNode = nodes.find((n) => n.type === 'input');
     const configNode = nodes.find((n) => n.type === 'config');

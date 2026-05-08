@@ -1,21 +1,48 @@
-@keyframes agent-pulse {
+/* ── Agent 脉冲动画 — 分析进行中的节点边框呼吸发光 ── */
+
+/*
+ * 两层脉冲：
+ *   外层（.react-flow__node.agent-analyzing）— 覆盖 index.css 的 border:none，驱动边框呼吸
+ *   内层（.agent-analyzing）— 驱动 box-shadow 光晕
+ *
+ * CSS 变量 --pulse-r/g/b 在 AgentNode 组件中通过 JS 设在外层 wrapper 的
+ * style 属性上，这样外层和内层都能读取到。
+ */
+
+/* 外层 wrapper：覆盖 border:none，动画控制边框颜色 */
+.react-flow__node:has(> .agent-analyzing) {
+  border: 2px solid rgba(var(--pulse-r, 120), var(--pulse-g, 160), var(--pulse-b, 255), 0.5) !important;
+  animation: wrapper-pulse 1.8s ease-in-out infinite;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+@keyframes wrapper-pulse {
   0%, 100% {
-    box-shadow: 0 0 8px rgba(var(--pulse-r, 120), var(--pulse-g, 160), var(--pulse-b, 255), 0.3),
-                0 4px 16px rgba(0,0,0,0.2);
-    border-color: rgba(var(--pulse-r, 120), var(--pulse-g, 160), var(--pulse-b, 255), 0.6);
+    border-color: rgba(var(--pulse-r, 120), var(--pulse-g, 160), var(--pulse-b, 255), 0.3);
+    box-shadow: 0 0 6px rgba(var(--pulse-r, 120), var(--pulse-g, 160), var(--pulse-b, 255), 0.15),
+                0 4px 12px rgba(0,0,0,0.12);
   }
   50% {
-    box-shadow: 0 0 24px rgba(var(--pulse-r, 120), var(--pulse-g, 160), var(--pulse-b, 255), 0.7),
-                0 0 48px rgba(var(--pulse-r, 120), var(--pulse-g, 160), var(--pulse-b, 255), 0.3),
-                0 4px 16px rgba(0,0,0,0.2);
     border-color: rgba(var(--pulse-r, 120), var(--pulse-g, 160), var(--pulse-b, 255), 1);
+    box-shadow: 0 0 24px rgba(var(--pulse-r, 120), var(--pulse-g, 160), var(--pulse-b, 255), 0.6),
+                0 0 48px rgba(var(--pulse-r, 120), var(--pulse-g, 160), var(--pulse-b, 255), 0.2),
+                0 4px 16px rgba(0,0,0,0.15);
   }
 }
 
+/* 内层 div：额外的内部光晕 */
 .agent-analyzing {
-  animation: agent-pulse 1.8s ease-in-out infinite;
-  border-width: 2px !important;
-  border-style: solid !important;
+  animation: inner-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes inner-pulse {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(var(--pulse-r, 120), var(--pulse-g, 160), var(--pulse-b, 255), 0.1);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(var(--pulse-r, 120), var(--pulse-g, 160), var(--pulse-b, 255), 0.3),
+                0 0 24px rgba(var(--pulse-r, 120), var(--pulse-g, 160), var(--pulse-b, 255), 0.1);
+  }
 }
 
 @keyframes pulse-bar {

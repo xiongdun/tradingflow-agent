@@ -13,6 +13,7 @@ from backend.skills.registry import skill
     description="获取股东变动数据（前十大流通股东/机构持仓比例/变动趋势）",
     markets=["a_share"],
     category="fundamental",
+    label="股东分析",
 )
 def get_shareholder_analysis(symbol: str, market: str = "a_share") -> dict[str, Any]:
     """获取股票的股东结构和变动数据"""

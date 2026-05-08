@@ -13,6 +13,7 @@ from backend.skills.registry import skill
     description="扫描股票市场情绪指标（量比/换手率/涨跌停/资金流向等），用于情绪面分析",
     markets=["a_share", "h_stock", "us_stock"],
     category="sentiment",
+    label="情绪扫描",
 )
 def scan_sentiment(symbol: str, market: str) -> dict[str, Any]:
     """扫描股票市场情绪指标，返回情绪面分析数据"""

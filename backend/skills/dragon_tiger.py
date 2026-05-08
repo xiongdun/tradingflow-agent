@@ -13,6 +13,7 @@ from backend.skills.registry import skill
     description="获取龙虎榜数据（机构/游资买卖明细），追踪主力资金动向",
     markets=["a_share"],
     category="sentiment",
+    label="龙虎榜",
 )
 def get_dragon_tiger(symbol: str, market: str = "a_share") -> dict[str, Any]:
     """获取 A 股龙虎榜数据，包含上榜日期、原因、买卖金额等"""

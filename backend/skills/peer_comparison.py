@@ -13,6 +13,7 @@ from backend.skills.registry import skill
     description="获取同行业/同板块股票对比数据，用于横向比较分析",
     markets=["a_share", "h_stock", "us_stock"],
     category="fundamental",
+    label="同行对比",
 )
 def compare_peers(symbol: str, market: str) -> dict[str, Any]:
     """获取同行业可比公司数据，用于横向估值比较"""

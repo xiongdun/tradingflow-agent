@@ -13,6 +13,7 @@ from backend.skills.registry import skill
     description="获取大宗交易数据（成交价/溢折价率/买卖方向），追踪机构大额交易动向",
     markets=["a_share"],
     category="data",
+    label="大宗交易",
 )
 def get_block_trade(symbol: str, market: str = "a_share") -> dict[str, Any]:
     """获取个股近期大宗交易记录"""

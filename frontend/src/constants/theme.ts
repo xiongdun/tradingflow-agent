@@ -12,4 +12,5 @@ export const STANCE_COLORS: Record<string, string> = {
   sector_rotation: '#FF2D55',  // 板块轮动 — Apple Pink
   quant: '#64D2FF',            // 量化 — Apple Cyan
   risk: '#FFCC00',             // 风控 — Apple Yellow
+  trading: '#FF6B35',          // 交易执行 — Orange Red
 };

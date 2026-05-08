@@ -20,7 +20,7 @@ class SkillMeta:
 
     def __init__(self, name: str, description: str, markets: list[str],
                  category: str, fn: Callable, params: dict | None = None,
-                 depends_on: list[str] | None = None):
+                 depends_on: list[str] | None = None, label: str | None = None):
         self.name = name            # 技能名称
         self.description = description  # 技能描述
         self.markets = markets      # 支持的市场列表
@@ -28,6 +28,7 @@ class SkillMeta:
         self.fn = fn                # 技能执行函数
         self.params = params or {}  # 额外参数说明
         self.depends_on = depends_on or []  # 依赖的其他技能名称
+        self.label = label or name  # 中文短名称（用于节点显示）
 
     def execute(self, **kwargs) -> Any:
         """执行技能函数，校验必需参数 symbol 和 market"""
@@ -45,6 +46,7 @@ class SkillMeta:
             "description": self.description,
             "markets": self.markets,
             "category": self.category,
+            "label": self.label,
             "params": self.params,
             "depends_on": self.depends_on,
         }
@@ -57,6 +59,7 @@ def skill(
     category: str = "general",
     params: dict | None = None,
     depends_on: list[str] | None = None,
+    label: str | None = None,
 ):
     """装饰器：将函数注册为技能。
 
@@ -67,6 +70,7 @@ def skill(
             markets=["a_share", "us_stock"],
             category="technical",
             depends_on=["kline_data"],
+            label="技术指标",
         )
         def get_indicators(symbol: str, market: str, kline_data: dict = None) -> dict:
             ...
@@ -80,6 +84,7 @@ def skill(
             fn=fn,
             params=params,
             depends_on=depends_on,
+            label=label,
         )
         _skills[name] = meta
         fn._skill_meta = meta  # 将元数据挂载到函数上，方便内省
