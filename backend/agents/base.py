@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import asyncio
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
@@ -14,7 +14,7 @@ from loguru import logger
 from backend.skills.registry import SkillMeta, get_skills_by_names
 
 # ─── backward-compatible re-exports ───
-from backend.agents.registry import agent, _agents_registry, get_agent_class, list_all_agents
+from backend.agents.registry import agent, _agents_registry, get_agent_class, list_all_agents  # noqa: F401
 from backend.agents.models import AgentOpinion
 
 # 单个技能执行超时（秒）— 防止网络请求挂死
@@ -174,9 +174,10 @@ class BaseAgent(ABC):
             state["symbol"], state["market"],
             cross_review=state.get("cross_review", ""),
         )
-        opinions = state.get("opinions", [])
-        opinions.append(opinion.model_dump())
-        return {"opinions": opinions}
+        opinion_data = opinion.model_dump()
+        if "round" in state:
+            opinion_data["round"] = state.get("round", 0)
+        return {"opinions": [opinion_data]}
 
 
 def _format_data(data: Any) -> str:

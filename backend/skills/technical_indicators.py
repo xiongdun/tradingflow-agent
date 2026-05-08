@@ -17,7 +17,6 @@ from backend.skills.registry import skill
 )
 def get_technical_indicators(symbol: str, market: str) -> dict[str, Any]:
     """获取 K 线数据并计算全部技术指标，返回信号判断"""
-    import numpy as np
     import pandas as pd
     provider = get_provider(market)
     from datetime import datetime, timedelta
@@ -218,6 +217,7 @@ def get_technical_indicators(symbol: str, market: str) -> dict[str, Any]:
 
 
 def _round(val: Any, digits: int = 2) -> float | None:
+    import pandas as pd
     if pd.isna(val):
         return None
     return round(float(val), digits)

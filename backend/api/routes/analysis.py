@@ -112,12 +112,18 @@ async def ws_analyze(ws: WebSocket):
             agent_infos = data.get("agent_infos")
 
             if agent_list:
-                name_map = {ai["role"]: ai["name"] for ai in (agent_infos or []) if "role" in ai}
+                info_map = {
+                    ai["role"]: ai
+                    for ai in (agent_infos or [])
+                    if isinstance(ai, dict) and "role" in ai
+                }
                 agents_def = []
                 for r in agent_list:
                     entry = {"role": r}
-                    if r in name_map:
-                        entry["name"] = name_map[r]
+                    info = info_map.get(r, {})
+                    for key in ("name", "skills", "extra_prompt", "system_prompt"):
+                        if info.get(key):
+                            entry[key] = info[key]
                     agents_def.append(entry)
                 workflow_def = {"name": "custom", "agents": agents_def}
             else:
@@ -127,6 +133,11 @@ async def ws_analyze(ws: WebSocket):
                     continue
 
             await _send_ws(ws, {"type": "status", "status": "started", "workflow": workflow_def.get("name")})
+            await _send_ws(ws, {
+                "type": "status",
+                "status": "running",
+                "agents": AnalysisService.workflow_agents(workflow_def),
+            })
 
             try:
                 result = await AnalysisService.run_and_save(symbol, market, workflow_def)

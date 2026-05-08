@@ -33,7 +33,7 @@ export function SchedulePanel() {
     try {
       const resp = await fetch('/api/schedules');
       const data = await resp.json();
-      setTasks(data.tasks || []);
+      setTasks(Array.isArray(data) ? data : data.tasks || []);
     } catch { setTasks([]); }
   }, []);
 

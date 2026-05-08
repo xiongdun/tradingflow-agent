@@ -16,6 +16,27 @@ class AnalysisService:
     """统一分析执行服务"""
 
     @staticmethod
+    def workflow_agents(workflow_def: dict[str, Any]) -> list[str]:
+        """提取工作流中参与的 Agent 角色，兼容多种模板格式。"""
+        mode = workflow_def.get("mode", "parallel")
+        if mode == "conditional":
+            roles: list[str] = []
+            for stage in workflow_def.get("stages", []):
+                for role in stage.get("agents", []):
+                    if role not in roles:
+                        roles.append(role)
+            return roles
+
+        agents_raw = workflow_def.get("agents", [])
+        if agents_raw and isinstance(agents_raw[0], str):
+            return list(agents_raw)
+        return [
+            agent.get("role", "")
+            for agent in agents_raw
+            if isinstance(agent, dict) and agent.get("role")
+        ]
+
+    @staticmethod
     async def run(symbol: str, market: str, workflow_def: dict[str, Any]) -> dict[str, Any]:
         """执行分析并返回结果（不持久化）
 
@@ -60,7 +81,7 @@ class AnalysisService:
                 symbol=symbol,
                 market=market,
                 workflow=workflow_def.get("name", ""),
-                agents=[a["role"] for a in workflow_def.get("agents", [])],
+                agents=AnalysisService.workflow_agents(workflow_def),
                 opinions=result["opinions"],
                 report=result["report"],
                 markdown=result["markdown"],
