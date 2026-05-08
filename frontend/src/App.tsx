@@ -6,6 +6,7 @@ import { Sidebar } from './components/WorkflowEditor/Sidebar';
 import { WorkflowEditorCanvas } from './components/WorkflowEditor/Canvas';
 import { NodeConfig } from './components/WorkflowEditor/NodeConfig';
 import { ControlBar } from './components/common/ControlBar';
+import { ToastContainer } from './components/common/Toast';
 import { ReportView } from './components/Analysis/ReportView';
 import { TradingViewChart } from './components/TradingView/Chart';
 import { HistoryPanel } from './components/History/HistoryPanel';
@@ -70,13 +71,35 @@ function ResizablePanel({
   );
 }
 
-/** 错误边界 — 子组件崩溃时显示兜底 UI，不拖垮整个页面 */
-class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+/** 错误边界 — 子组件崩溃时显示兜底 UI + 重试按钮，不拖垮整个页面 */
+class ErrorBoundary extends Component<
+  { children: ReactNode; label?: string },
+  { error: Error | null }
+> {
   state = { error: null as Error | null };
   static getDerivedStateFromError(error: Error) { return { error }; }
   render() {
     if (this.state.error) {
-      return <div style={{ padding: 20, color: 'var(--accent-red)', fontSize: 13 }}>组件加载失败: {this.state.error.message}</div>;
+      const label = this.props.label || '组件';
+      return (
+        <div style={{ padding: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <div style={{ color: 'var(--accent-red)', fontSize: 14, fontWeight: 600 }}>
+            {label}加载失败
+          </div>
+          <div style={{ color: 'var(--text-muted)', fontSize: 12, maxWidth: 400, textAlign: 'center', wordBreak: 'break-all' }}>
+            {this.state.error.message}
+          </div>
+          <button
+            onClick={() => this.setState({ error: null })}
+            style={{
+              background: 'var(--accent-blue)', color: '#fff', border: 'none',
+              borderRadius: 6, padding: '6px 16px', fontSize: 12, cursor: 'pointer',
+            }}
+          >
+            重试
+          </button>
+        </div>
+      );
     }
     return this.props.children;
   }
@@ -98,6 +121,7 @@ export default function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)', color: 'var(--text)' }}>
+      <ToastContainer />
       {/* 顶部控制栏：股票代码输入、市场选择、分析按钮 */}
       <ControlBar />
 
@@ -128,44 +152,49 @@ export default function App() {
       {/* 主内容区域 */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {tab === 'workflow' ? (
-          <>
-            {/* 左侧：Agent 拖拽侧边栏（可拖拽调整宽度） */}
-            <ResizablePanel defaultWidth={240} minWidth={180} maxWidth={400} position="left">
-              <Sidebar />
-            </ResizablePanel>
-            {/* 中间：React Flow 画布 */}
-            <div style={{ flex: 1, position: 'relative' }}>
-              <WorkflowEditorCanvas />
-            </div>
-            {/* 右侧：节点配置面板（可拖拽调整宽度） */}
-            <ResizablePanel defaultWidth={320} minWidth={240} maxWidth={500} position="right">
-              <NodeConfig />
-            </ResizablePanel>
-          </>
+          <ErrorBoundary label="工作流编辑">
+            <>
+              <ResizablePanel defaultWidth={240} minWidth={180} maxWidth={400} position="left">
+                <Sidebar />
+              </ResizablePanel>
+              <div style={{ flex: 1, position: 'relative' }}>
+                <WorkflowEditorCanvas />
+              </div>
+              <ResizablePanel defaultWidth={320} minWidth={240} maxWidth={500} position="right">
+                <NodeConfig />
+              </ResizablePanel>
+            </>
+          </ErrorBoundary>
         ) : tab === 'report' ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {/* 上方：TradingView K 线图 */}
             <div style={{ flex: '0 0 40%', minHeight: 300, padding: 12 }}>
-              <ErrorBoundary>
+              <ErrorBoundary label="K线图表">
                 <TradingViewChart height={280} />
               </ErrorBoundary>
             </div>
-            {/* 下方：分析报告视图 */}
             <div style={{ flex: 1, borderTop: '1px solid var(--border)', overflow: 'auto' }}>
-              <ReportView />
+              <ErrorBoundary label="分析报告">
+                <ReportView />
+              </ErrorBoundary>
             </div>
           </div>
         ) : tab === 'history' ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <HistoryPanel />
+            <ErrorBoundary label="历史记录">
+              <HistoryPanel />
+            </ErrorBoundary>
           </div>
         ) : tab === 'watchlist' ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <WatchlistPanel />
+            <ErrorBoundary label="自选股">
+              <WatchlistPanel />
+            </ErrorBoundary>
           </div>
         ) : (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <SchedulePanel />
+            <ErrorBoundary label="定时任务">
+              <SchedulePanel />
+            </ErrorBoundary>
           </div>
         )}
       </div>

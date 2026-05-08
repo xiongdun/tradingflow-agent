@@ -19,6 +19,10 @@ _CACHE_DIR = Path(__file__).parent.parent / ".cache"
 # 默认 TTL（秒）
 DEFAULT_TTL = 300
 
+# 缓存大小限制
+MAX_CACHE_FILES = 500       # 最大缓存文件数
+MAX_CACHE_SIZE_MB = 200     # 最大缓存总大小（MB）
+
 # 按缓存 key 分片的锁，避免并发读写同一文件
 _locks: dict[str, threading.Lock] = {}
 _locks_lock = threading.Lock()
@@ -59,6 +63,31 @@ def _cache_key(method: str, *args: Any, **kwargs: Any) -> str:
 def _cache_path(key: str) -> Path:
     """缓存文件路径"""
     return _ensure_cache_dir() / f"{key}.json"
+
+
+def _evict_if_needed() -> None:
+    """检查缓存大小，超出限制时按修改时间从旧到新淘汰文件"""
+    cache_dir = _ensure_cache_dir()
+    files = sorted(cache_dir.glob("*.json"), key=lambda f: f.stat().st_mtime)
+
+    # 按文件数淘汰
+    while len(files) > MAX_CACHE_FILES:
+        oldest = files.pop(0)
+        try:
+            oldest.unlink()
+        except Exception:
+            pass
+
+    # 按总大小淘汰
+    total_size = sum(f.stat().st_size for f in files)
+    max_bytes = MAX_CACHE_SIZE_MB * 1024 * 1024
+    while total_size > max_bytes and files:
+        oldest = files.pop(0)
+        try:
+            total_size -= oldest.stat().st_size
+            oldest.unlink()
+        except Exception:
+            pass
 
 
 def cached_call(method: str, fn: Callable, *args: Any, **kwargs: Any) -> Any:
@@ -135,6 +164,9 @@ def cached_call(method: str, fn: Callable, *args: Any, **kwargs: Any) -> Any:
             )
         except Exception as e:
             logger.warning(f"[cache] Failed to write cache for {method}: {e}")
+
+        # 写入后检查缓存大小，超出则淘汰最旧文件
+        _evict_if_needed()
 
     return result
 

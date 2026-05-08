@@ -3,7 +3,8 @@
 
 import { useCallback, useRef } from 'react';
 import { useWorkflowStore } from '../store/workflowStore';
-import type { WSMessage } from '../types';
+import { showToast } from '../components/common/Toast';
+import type { WSMessage, AgentOpinion, FinalReport } from '../types';
 
 const MAX_RECONNECT_ATTEMPTS = 5;
 const BASE_RECONNECT_DELAY = 1000; // 1s, doubles each attempt
@@ -43,6 +44,11 @@ export function useWebSocket() {
       store.addProgress('✅ WebSocket 已连接');
     };
 
+    // 定义带 workflow 信息的状态消息类型
+    interface StatusMessage extends WSMessage {
+      workflow?: { agents?: Array<{ role: string }> };
+    }
+
     // 处理后端推送的消息
     ws.onmessage = (event) => {
       const msg: WSMessage = JSON.parse(event.data);
@@ -52,7 +58,8 @@ export function useWebSocket() {
           if (msg.status === 'started') {
             store.addProgress(`🚀 工作流开始: ${msg.workflow}`);
             // 从 workflow 定义中提取 agents 列表，让 AgentNodes 开始脉冲
-            const wfAgents: string[] = (msg as any).workflow?.agents?.map((a: any) => a.role) || [];
+            const wfMsg = msg as StatusMessage;
+            const wfAgents: string[] = wfMsg.workflow?.agents?.map((a) => a.role) || [];
             if (wfAgents.length > 0) store.setAnalyzingAgents(wfAgents);
           }
           if (msg.status === 'running') {
@@ -82,8 +89,8 @@ export function useWebSocket() {
         }
         case 'opinion': {
           // 收到单个分析师的意见，添加到全局状态并显示进度，同时标记该 Agent 完成
-          store.addOpinion(msg.data as any);
-          const op = msg.data as any;
+          const op = msg.data as AgentOpinion;
+          store.addOpinion(op);
           store.removeAnalyzingAgent(op.agent_role);
           store.setAgentProgress(op.agent_role, { status: 'done', opinion: op });
           store.addProgress(`📊 ${op.agent_name}: ${op.stance} (${(op.confidence * 100).toFixed(0)}%)`);
@@ -91,11 +98,12 @@ export function useWebSocket() {
         }
         case 'report':
           // 收到最终报告（含 Markdown 格式），自动切换到结果标签页
-          store.setFinalReport(msg.data as any, msg.markdown || '');
+          store.setFinalReport(msg.data as FinalReport, msg.markdown || '');
           window.dispatchEvent(new Event('switch-to-report'));
           break;
         case 'error':
-          // 分析出错，停止分析状态
+          // 分析出错，停止分析状态并弹出 Toast
+          showToast(`分析出错: ${msg.message}`, 'error');
           store.addProgress(`❌ 错误: ${msg.message}`);
           store.setAnalyzing(false);
           break;
@@ -108,9 +116,16 @@ export function useWebSocket() {
       if (!intentionallyClosed.current && reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
         const delay = BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts.current);
         reconnectAttempts.current++;
-        store.addProgress(`连接断开，${delay / 1000}秒后重连 (第${reconnectAttempts.current}次)...`);
+        // 分析进行中断开时，提示用户部分结果可能已保留
+        const wasAnalyzing = store.isAnalyzing;
+        const msg = wasAnalyzing
+          ? `连接断开，分析可能仍在进行中，${delay / 1000}秒后重连 (第${reconnectAttempts.current}次)...`
+          : `连接断开，${delay / 1000}秒后重连 (第${reconnectAttempts.current}次)...`;
+        store.addProgress(msg);
+        if (wasAnalyzing) showToast('WebSocket 连接断开，正在尝试重连...', 'warning');
         reconnectTimer.current = setTimeout(() => connect(), delay);
       } else if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
+        showToast('WebSocket 连接失败，请检查后端服务是否启动', 'error');
         store.addProgress('⚠️ WebSocket 连接失败，请检查后端服务是否启动');
       }
     };
