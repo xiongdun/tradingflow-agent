@@ -29,7 +29,8 @@ class ScheduleUpdate(BaseModel):
 async def get_schedules():
     """获取定时任务列表"""
     from backend.core.scheduler import list_tasks
-    return await list_tasks()
+    tasks = await list_tasks()
+    return {"tasks": tasks, "count": len(tasks)}
 
 
 @router.post("")

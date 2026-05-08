@@ -129,7 +129,7 @@ export function useWebSocket() {
    * @param agents 自定义 Agent 角色列表（可选，覆盖模板）
    * @param agentInfos Agent 详细信息列表（含名称，用于自定义 Agent）
    */
-  const sendAnalysis = useCallback((symbol: string, market: string, workflow: string, agents?: string[], agentInfos?: { role: string; name: string }[]) => {
+  const sendAnalysis = useCallback((symbol: string, market: string, workflow: string, agents?: string[], agentInfos?: { role: string; name: string; skills?: string[]; extra_prompt?: string }[]) => {
     intentionallyClosed.current = false; // 允许重连
     store.resetAnalysis();   // 清除上次分析结果
     store.setAnalyzing(true); // 标记为分析中

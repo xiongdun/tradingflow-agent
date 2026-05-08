@@ -2,7 +2,6 @@
 from __future__ import annotations
 from typing import Any
 from langgraph.graph import END, START, StateGraph
-from backend.agents.base import BaseAgent
 from backend.graph.builders.common import create_agents, create_summarizer
 from backend.graph.state import AgentState
 
@@ -21,6 +20,9 @@ def build_conditional_workflow(
         {"agents": ["fundamental", "technical", "quant"], "condition": "check_risk"},
     ]
     """
+    if not stages:
+        raise ValueError("conditional workflow requires at least one stage")
+
     all_roles: list[str] = []
     for stage in stages:
         for role in stage["agents"]:
@@ -35,9 +37,9 @@ def build_conditional_workflow(
     builder.add_node("summarizer", summarizer.run)
 
     def make_gate(condition: str, next_roles: list[str]):
-        def gate_fn(state: dict) -> str:
+        def gate_fn(state: dict) -> str | list[str]:
             if condition == "always":
-                return "continue"
+                return next_roles
             if condition == "check_risk":
                 opinions = state.get("opinions", [])
                 for op in opinions:
@@ -45,26 +47,34 @@ def build_conditional_workflow(
                         stance = op.get("stance", "")
                         if stance in ("bearish", "strong_bearish"):
                             return "skip"
-                return "continue"
-            return "continue"
+                return next_roles
+            return next_roles
         return gate_fn
+
+    async def gate_node(state: dict) -> dict:
+        return {}
+
+    for i in range(len(stages) - 1):
+        builder.add_node(f"gate_{i}", gate_node)
 
     for i, stage in enumerate(stages):
         roles = stage["agents"]
-        condition = stage.get("condition", "always")
 
         if i == 0:
             for role in roles:
                 builder.add_edge(START, role)
-        else:
-            gate_fn = make_gate(condition, roles)
+        if i < len(stages) - 1:
+            gate_name = f"gate_{i}"
+            next_stage = stages[i + 1]
+            next_roles = next_stage["agents"]
+            condition = next_stage.get("condition", "always")
+            for role in roles:
+                builder.add_edge(role, gate_name)
             builder.add_conditional_edges(
-                stages[i - 1]["agents"][-1],
-                gate_fn,
-                {role: role for role in roles} | {"skip": "summarizer"},
+                gate_name,
+                make_gate(condition, next_roles),
+                {role: role for role in next_roles} | {"skip": "summarizer"},
             )
-            for prev_role in stages[i - 1]["agents"][:-1]:
-                builder.add_edge(prev_role, roles[0])
 
     last_roles = stages[-1]["agents"]
     for role in last_roles:
