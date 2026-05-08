@@ -72,6 +72,8 @@ class SummarizerAgent(BaseAgent):
     "action_suggestion": "buy/sell/hold/watch",
     "summary": "完整的分析总结报告"
 }"""
+        if self.extra_prompt:
+            system_prompt += f"\n\n额外指示：{self.extra_prompt}"
 
         # 格式化各分析师意见为文本
         opinions_text = ""

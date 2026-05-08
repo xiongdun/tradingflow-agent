@@ -28,7 +28,7 @@ export function WatchlistPanel() {
     try {
       const resp = await fetch('/api/watchlist');
       const data = await resp.json();
-      setItems(data.items || []);
+      setItems(Array.isArray(data) ? data : data.items || []);
     } catch { setItems([]); }
   }, []);
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 from langgraph.graph import END, START, StateGraph
 from langchain_core.messages import HumanMessage, SystemMessage
-from backend.agents.base import BaseAgent
 from backend.graph.builders.common import create_agents, create_summarizer
 from backend.graph.state import AgentState
 
@@ -32,6 +31,8 @@ def build_multi_round_workflow(
 
     async def cross_review_node(state: dict) -> dict:
         opinions = state.get("opinions", [])
+        latest_round = max((op.get("round", 0) for op in opinions), default=0)
+        opinions = [op for op in opinions if op.get("round", 0) == latest_round]
         opinions_text = "\n".join(
             f"- {op.get('agent_name', '')} ({op.get('stance', '')}): {op.get('summary', '')[:200]}"
             for op in opinions

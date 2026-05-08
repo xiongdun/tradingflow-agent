@@ -20,7 +20,8 @@ class WatchlistAdd(BaseModel):
 async def get_watchlist(group: str = ""):
     """获取关注列表"""
     from backend.core.watchlist import list_watchlist
-    return await list_watchlist(group or None)
+    items = await list_watchlist(group or None)
+    return {"items": items, "count": len(items)}
 
 
 @router.post("")

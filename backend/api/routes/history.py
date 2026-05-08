@@ -49,15 +49,8 @@ async def run_backtest(symbol: str, days: int = 30):
     return await backtest(symbol, days)
 
 
-@router.get("/export/{history_id}")
-async def export_report(history_id: int, format: str = "md"):
-    """导出分析报告为指定格式（md/html/txt）"""
-    from backend.core.database import get_history
+def _export_response(record: dict, format: str) -> Response:
     from backend.output.report import generate_html_report, generate_text_report
-
-    record = await get_history(history_id)
-    if not record:
-        return {"error": "Record not found"}
 
     report = record.get("report", {})
     symbol = record.get("symbol", "report")
@@ -66,11 +59,37 @@ async def export_report(history_id: int, format: str = "md"):
         content = generate_html_report(report) if report else record.get("markdown", "")
         return Response(content=content, media_type="text/html",
                        headers={"Content-Disposition": f'attachment; filename="{symbol}_report.html"'})
-    elif format == "txt":
+    if format == "txt":
         content = generate_text_report(report) if report else record.get("markdown", "")
         return Response(content=content, media_type="text/plain",
                        headers={"Content-Disposition": f'attachment; filename="{symbol}_report.txt"'})
-    else:  # md
-        content = record.get("markdown", "")
-        return Response(content=content, media_type="text/markdown",
-                       headers={"Content-Disposition": f'attachment; filename="{symbol}_report.md"'})
+
+    content = record.get("markdown", "")
+    return Response(content=content, media_type="text/markdown",
+                   headers={"Content-Disposition": f'attachment; filename="{symbol}_report.md"'})
+
+
+@router.get("/export/latest")
+async def export_latest_report(format: str = "md"):
+    """导出最近一条分析报告为指定格式（md/html/txt）"""
+    from backend.core.database import get_history, list_history
+
+    records = await list_history(limit=1)
+    if not records:
+        return {"error": "Record not found"}
+
+    record = await get_history(records[0]["id"])
+    if not record:
+        return {"error": "Record not found"}
+    return _export_response(record, format)
+
+
+@router.get("/export/{history_id}")
+async def export_report(history_id: int, format: str = "md"):
+    """导出分析报告为指定格式（md/html/txt）"""
+    from backend.core.database import get_history
+
+    record = await get_history(history_id)
+    if not record:
+        return {"error": "Record not found"}
+    return _export_response(record, format)

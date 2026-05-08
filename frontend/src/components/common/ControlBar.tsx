@@ -24,6 +24,8 @@ export function ControlBar() {
   const agentInfos = nodes.filter((n) => n.type === 'analyst').map((n) => ({
     role: (n.data as any).role,
     name: (n.data as any).label || (n.data as any).role,
+    skills: (n.data as any).skills || [],
+    extra_prompt: (n.data as any).extra_prompt || '',
   }));
 
   /** 点击分析按钮 — 通过 WebSocket 发送分析请求 */

@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from pydantic import BaseModel
 from typing_extensions import TypedDict
 
 
@@ -20,7 +19,9 @@ def merge_opinions(existing: list, new: list) -> list:
     deduped = []
     for op in combined:
         # 优先使用 agent_role 作为去重键，降级到 agent_name
-        key = op.get("agent_role", "") or op.get("agent_name", id(op))
+        role_key = op.get("agent_role", "") or op.get("agent_name", id(op))
+        round_no = op.get("round")
+        key = (role_key, round_no) if round_no is not None else role_key
         if key not in seen:
             seen.add(key)
             deduped.append(op)

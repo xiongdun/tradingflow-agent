@@ -40,6 +40,8 @@ def validate_workflow_def(workflow_def: dict[str, Any]) -> list[str]:
             errors.append("Agent 定义缺少 role 字段")
             continue
         cls = get_agent_class(role)
+        if cls is None and isinstance(role, str) and role.startswith("custom_"):
+            cls = GenericAgent
         if cls is None:
             errors.append(f"未知的 Agent 角色: {role}")
         elif cls is not GenericAgent:
@@ -53,6 +55,13 @@ def validate_workflow_def(workflow_def: dict[str, Any]) -> list[str]:
         for i, stage in enumerate(workflow_def.get("stages", [])):
             if "agents" not in stage:
                 errors.append(f"条件阶段 {i} 缺少 agents 字段")
+                continue
+            for role in stage.get("agents", []):
+                cls = get_agent_class(role)
+                if cls is None and isinstance(role, str) and role.startswith("custom_"):
+                    cls = GenericAgent
+                if cls is None:
+                    errors.append(f"条件阶段 {i} 引用了未知 Agent 角色: {role}")
 
     if mode == "multi_round":
         rounds = workflow_def.get("rounds", 2)

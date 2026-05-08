@@ -1,7 +1,7 @@
 # backend/graph/builders/common.py
 from __future__ import annotations
 from typing import Any
-from langgraph.graph import END, START, StateGraph
+from langgraph.graph import StateGraph
 from backend.agents.base import BaseAgent
 from backend.agents.summarizer import SummarizerAgent
 from backend.core.config import load_settings
@@ -27,6 +27,9 @@ def create_agents(
     agents: dict[str, BaseAgent] = {}
     for role in agent_roles:
         cls = get_agent_class(role)
+        from backend.agents.generic import GenericAgent
+        if cls is None and role.startswith("custom_"):
+            cls = GenericAgent
         if cls is None:
             raise ValueError(f"Unknown agent role: {role}")
         skills = (
@@ -34,7 +37,6 @@ def create_agents(
             if agent_skills and role in agent_skills
             else get_agent_skills(role)
         )
-        from backend.agents.generic import GenericAgent
         if cls is GenericAgent:
             agents[role] = cls(llm=llm, skills=skills, extra_prompt=extra_prompts.get(role, ""), role=role, name=agent_names.get(role, ""))
         else:

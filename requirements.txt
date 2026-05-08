@@ -101,7 +101,7 @@ urllib3==2.6.3
 uuid_utils==0.14.1
 uvicorn==0.46.0
 # Editable install with no version control (tradingflow-agent==0.1.0)
--e d:\code\python\tradingflow-agent
+#-e d:\code\python\tradingflow-agent
 watchfiles==1.1.1
 webencodings==0.5.1
 websockets==16.0
