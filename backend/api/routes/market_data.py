@@ -32,11 +32,16 @@ class MarkerRequest(BaseModel):
 @router.post("/kline")
 async def get_kline(req: KlineRequest):
     """获取 K 线数据，格式化为 TradingView Lightweight Charts 可用格式"""
-    provider = get_provider(req.market)
-    start = (datetime.now() - timedelta(days=req.days)).strftime("%Y-%m-%d")
-    df = provider.get_kline(req.symbol, period=req.period, start_date=start)
+    try:
+        provider = get_provider(req.market)
+        start = (datetime.now() - timedelta(days=req.days)).strftime("%Y-%m-%d")
+        df = provider.get_kline(req.symbol, period=req.period, start_date=start)
+    except Exception as e:
+        from loguru import logger
+        logger.error(f"Failed to get kline for {req.symbol}: {e}")
+        return {"symbol": req.symbol, "bars": [], "error": str(e)}
 
-    if df.empty:
+    if df is None or df.empty:
         return {"symbol": req.symbol, "bars": [], "error": "No data"}
 
     # 转换为 Lightweight Charts 所需的 {time, open, high, low, close, volume} 格式

@@ -11,6 +11,24 @@ import './pulse.css';
  * AgentNodeComponent — React Flow 自定义分析师节点
  * 点击仅选中节点，分析详情在右侧 NodeConfig 面板展示
  */
+
+/** Agent 角色 → 图标映射 */
+const ROLE_ICONS: Record<string, string> = {
+  fundamental: '📊', technical: '📈', sentiment: '🔥',
+  news: '📰', macro: '🌐', hot_money: '💰',
+  risk: '⚠️', summarizer: '✦',
+};
+
+/** 将 hex 颜色转为 RGB 分量，用于 CSS 自定义属性 */
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  return [
+    parseInt(h.substring(0, 2), 16),
+    parseInt(h.substring(2, 4), 16),
+    parseInt(h.substring(4, 6), 16),
+  ];
+}
+
 function AgentNodeComponent({ id, data, selected }: NodeProps) {
   const role = (data as any).role as string;
   const label = (data as any).label as string;
@@ -18,12 +36,16 @@ function AgentNodeComponent({ id, data, selected }: NodeProps) {
   const color = STANCE_COLORS[role] || '#8e8e93';
   const analyzing = useWorkflowStore((s) => s.analyzingAgents.includes(role));
   const setSelectedNodeId = useWorkflowStore((s) => s.setSelectedNodeId);
+  const [r, g, b] = hexToRgb(color);
 
   return (
     <div
       className={analyzing ? 'agent-analyzing' : undefined}
       onClick={() => setSelectedNodeId(id)}
       style={{
+        '--pulse-r': r,
+        '--pulse-g': g,
+        '--pulse-b': b,
         background: 'var(--bg-card)',
         border: `1px solid ${selected ? color : 'var(--border)'}`,
         borderRadius: 12,
@@ -36,14 +58,14 @@ function AgentNodeComponent({ id, data, selected }: NodeProps) {
           : selected ? `0 0 16px ${color}33, 0 4px 16px rgba(0,0,0,0.15)` : 'var(--shadow-card)',
         transition: 'box-shadow 0.3s, border-color 0.2s',
         cursor: 'pointer',
-      }}
+      } as React.CSSProperties}
     >
       {/* 左侧连接手柄（输入端） */}
       <Handle type="target" id="left" position={Position.Left} style={{ background: color, width: 10, height: 10, border: '2px solid var(--bg-card)' }} />
 
-      {/* 角色名称行：颜色圆点 + 名称 */}
+      {/* 角色名称行：类型图标 + 名称 */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <div style={{ width: 10, height: 10, borderRadius: '50%', background: color }} />
+        <span style={{ fontSize: 14, color }}>{ROLE_ICONS[role] || '🧠'}</span>
         <span style={{ fontWeight: 600, color: 'var(--text)', fontSize: 14 }}>{label}</span>
       </div>
 

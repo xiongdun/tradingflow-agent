@@ -102,9 +102,17 @@ async def ws_analyze(ws: WebSocket):
     from backend.core.analysis_service import AnalysisService
 
     await manager.connect(ws)
+    # 防止同一连接并发执行多次分析（导致重复保存历史记录）
+    _analysis_running = False
     try:
         while True:
             data = await ws.receive_json()
+
+            # 如果已有分析在运行，拒绝新请求
+            if _analysis_running:
+                await _send_ws(ws, {"type": "error", "message": "已有分析正在运行，请等待完成"})
+                continue
+
             symbol = data.get("symbol", "")
             market = data.get("market", "a_share")
             workflow_name = data.get("workflow", "deep_analysis")
@@ -126,10 +134,17 @@ async def ws_analyze(ws: WebSocket):
                     await _send_ws(ws, {"type": "error", "message": f"Template not found: {workflow_name}"})
                     continue
 
+            _analysis_running = True
             await _send_ws(ws, {"type": "status", "status": "started", "workflow": workflow_def.get("name")})
 
+            # 创建状态回调 — 将 agent 进度实时推送到 WebSocket
+            async def status_callback(status: str, agent_role: str, agent_name: str, extra: dict):
+                msg = {"type": "agent_status", "status": status, "agent_role": agent_role, "agent_name": agent_name}
+                msg.update(extra)
+                await _send_ws(ws, msg)
+
             try:
-                result = await AnalysisService.run_and_save(symbol, market, workflow_def)
+                result = await AnalysisService.run_and_save(symbol, market, workflow_def, status_callback=status_callback)
 
                 for op in result["opinions"]:
                     await _send_ws(ws, {"type": "opinion", "data": op})
@@ -139,6 +154,8 @@ async def ws_analyze(ws: WebSocket):
 
             except Exception as e:
                 await _send_ws(ws, {"type": "error", "message": str(e)})
+            finally:
+                _analysis_running = False
 
     except WebSocketDisconnect:
         manager.disconnect(ws)

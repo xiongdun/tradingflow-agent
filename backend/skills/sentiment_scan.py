@@ -26,9 +26,12 @@ def _scan_a_share_sentiment(symbol: str) -> dict[str, Any]:
     import akshare as ak
     result = {"symbol": symbol, "market": "a_share", "indicators": {}}
 
+    # 根据股票代码判断交易所：6开头=上海，0/3开头=深圳
+    exchange = "sh" if symbol.startswith("6") else "sz"
+
     try:
         # 获取个股资金流向数据（主力/散户净流入）
-        df = ak.stock_individual_fund_flow(stock=symbol, market="sh")
+        df = ak.stock_individual_fund_flow(stock=symbol, market=exchange)
         if df is not None and not df.empty:
             latest = df.iloc[-1]
             result["indicators"]["fund_flow"] = {

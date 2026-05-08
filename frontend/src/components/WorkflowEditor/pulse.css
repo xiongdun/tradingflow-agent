@@ -1,16 +1,21 @@
 @keyframes agent-pulse {
   0%, 100% {
-    opacity: 1;
-    transform: scale(1);
+    box-shadow: 0 0 8px rgba(var(--pulse-r, 120), var(--pulse-g, 160), var(--pulse-b, 255), 0.3),
+                0 4px 16px rgba(0,0,0,0.2);
+    border-color: rgba(var(--pulse-r, 120), var(--pulse-g, 160), var(--pulse-b, 255), 0.6);
   }
   50% {
-    opacity: 0.85;
-    transform: scale(1.01);
+    box-shadow: 0 0 24px rgba(var(--pulse-r, 120), var(--pulse-g, 160), var(--pulse-b, 255), 0.7),
+                0 0 48px rgba(var(--pulse-r, 120), var(--pulse-g, 160), var(--pulse-b, 255), 0.3),
+                0 4px 16px rgba(0,0,0,0.2);
+    border-color: rgba(var(--pulse-r, 120), var(--pulse-g, 160), var(--pulse-b, 255), 1);
   }
 }
 
 .agent-analyzing {
-  animation: agent-pulse 2s ease-in-out infinite;
+  animation: agent-pulse 1.8s ease-in-out infinite;
+  border-width: 2px !important;
+  border-style: solid !important;
 }
 
 @keyframes pulse-bar {

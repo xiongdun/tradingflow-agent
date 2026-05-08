@@ -46,3 +46,4 @@ class AgentState(TypedDict):
     error: str | None                    # 错误信息
     round: int                           # 当前迭代轮次（多轮模式，默认 0）
     selected_agents: list[str]           # 自适应模式选中的 Agent 角色列表
+    status_callback: Any                 # 可选异步回调 (status, role, name, extra) -> None
