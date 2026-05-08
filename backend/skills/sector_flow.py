@@ -13,6 +13,7 @@ from backend.skills.registry import skill
     description="获取行业板块资金流向数据，判断资金轮动方向",
     markets=["a_share"],
     category="sentiment",
+    label="板块流向",
 )
 def get_sector_flow(symbol: str, market: str = "a_share") -> dict[str, Any]:
     """获取行业板块资金流向排名，识别当日热门板块"""

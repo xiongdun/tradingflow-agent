@@ -16,8 +16,8 @@ const statusColorMap: Record<string, string> = {
 
 /** 通用面板容器样式 */
 const panelStyle: React.CSSProperties = {
-  width: 300, minWidth: 300, background: 'var(--bg-panel)', borderLeft: '1px solid var(--border)',
-  padding: 16, overflowY: 'auto',
+  width: '100%', height: '100%', background: 'var(--bg-panel)', borderLeft: '1px solid var(--border)',
+  padding: 16, overflowY: 'auto', boxSizing: 'border-box',
   backdropFilter: 'var(--blur)', WebkitBackdropFilter: 'var(--blur)',
 };
 

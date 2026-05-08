@@ -41,6 +41,12 @@ async def get_kline(req: KlineRequest):
         logger.error(f"Failed to get kline for {req.symbol}: {e}")
         return {"symbol": req.symbol, "bars": [], "error": str(e)}
 
+    # 防御：缓存损坏时 df 可能是字符串而非 DataFrame，强制清除并重新获取
+    if isinstance(df, str):
+        from backend.core.cache import clear_cache
+        clear_cache("get_kline")
+        return {"symbol": req.symbol, "bars": [], "error": "Cache corrupted, cleared. Please retry."}
+
     if df is None or df.empty:
         return {"symbol": req.symbol, "bars": [], "error": "No data"}
 

@@ -13,6 +13,7 @@ from backend.skills.registry import skill
     description="获取宏观经济指标（GDP/CPI/PMI/利率/汇率等），用于宏观分析背景",
     markets=["a_share", "h_stock", "us_stock"],
     category="macro",
+    label="宏观指标",
 )
 def get_macro_indicators(symbol: str, market: str) -> dict[str, Any]:
     """获取与当前市场相关的宏观经济指标"""

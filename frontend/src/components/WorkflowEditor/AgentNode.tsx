@@ -1,7 +1,7 @@
 // frontend/src/components/WorkflowEditor/AgentNode.tsx
 // Agent 画布节点组件 — React Flow 自定义节点，按角色着色，展示技能标签
 
-import { memo } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { useWorkflowStore } from '../../store/workflowStore';
 import { STANCE_COLORS } from '../../constants/theme';
@@ -37,9 +37,25 @@ function AgentNodeComponent({ id, data, selected }: NodeProps) {
   const analyzing = useWorkflowStore((s) => s.analyzingAgents.includes(role));
   const setSelectedNodeId = useWorkflowStore((s) => s.setSelectedNodeId);
   const [r, g, b] = hexToRgb(color);
+  const selfRef = useRef<HTMLDivElement>(null);
+
+  // 将 --pulse-r/g/b 设在外层 .react-flow__node wrapper 上，
+  // 以便 pulse.css 中 wrapper-pulse 动画能读取这些变量
+  useEffect(() => {
+    const el = selfRef.current;
+    if (!el) return;
+    // 向上找到 React Flow 生成的 wrapper 节点（data-id="xxx"）
+    const wrapper = el.closest<HTMLElement>('.react-flow__node');
+    if (wrapper) {
+      wrapper.style.setProperty('--pulse-r', String(r));
+      wrapper.style.setProperty('--pulse-g', String(g));
+      wrapper.style.setProperty('--pulse-b', String(b));
+    }
+  }, [r, g, b]);
 
   return (
     <div
+      ref={selfRef}
       className={analyzing ? 'agent-analyzing' : undefined}
       onClick={() => setSelectedNodeId(id)}
       style={{

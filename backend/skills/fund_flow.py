@@ -13,6 +13,7 @@ from backend.skills.registry import skill
     description="获取个股主力资金流向（大单/超大单/中单/小单净流入），判断资金趋势",
     markets=["a_share"],
     category="sentiment",
+    label="资金流向",
 )
 def get_fund_flow(symbol: str, market: str = "a_share") -> dict[str, Any]:
     """获取个股资金流向明细，分析主力和散户资金动向"""

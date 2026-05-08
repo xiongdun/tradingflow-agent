@@ -18,6 +18,7 @@ export interface SkillInfo {
   description: string;         // 技能描述
   markets: string[];           // 支持的市场列表
   category: string;            // 所属类别（如 fundamental、technical）
+  label?: string;              // 中文短名称（用于节点显示，如 "财务数据"）
   params?: Record<string, string>;  // 参数说明
   depends_on?: string[];       // 依赖的其他技能
 }

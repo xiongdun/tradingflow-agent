@@ -71,7 +71,7 @@ export function SkillPicker({ role, currentSkills, onUpdate }: Props) {
                 onChange={() => toggle(skill.name)}
                 style={{ accentColor: 'var(--accent-blue)' }}
               />
-              <span>{skill.name}</span>
+              <span>{skill.label || skill.name}</span>
             </label>
           ))}
         </div>

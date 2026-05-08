@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 from typing import Any, Callable
 
+import pandas as pd
 from loguru import logger
 
 # 缓存目录
@@ -86,8 +87,21 @@ def cached_call(method: str, fn: Callable, *args: Any, **kwargs: Any) -> Any:
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
                 if data.get("expire_at", 0) > time.time():
-                    logger.debug(f"[cache] HIT: {method} (ttl={ttl}s)")
-                    return data["value"]
+                    raw = data["value"]
+                    # 重建 DataFrame：存储格式为 {_is_df, columns, index, data}
+                    if isinstance(raw, dict) and raw.get("_is_df"):
+                        df = pd.DataFrame(raw["data"])
+                        if raw.get("columns"):
+                            df.columns = raw["columns"]
+                        logger.debug(f"[cache] HIT: {method} (ttl={ttl}s, DataFrame)")
+                        return df
+                    # 检测旧的损坏缓存（DataFrame 被 json.dumps(default=str) 序列化为字符串）
+                    if isinstance(raw, str) and len(raw) > 200:
+                        logger.warning(f"[cache] Corrupted string value for {method}, deleting cache")
+                        path.unlink(missing_ok=True)
+                    else:
+                        logger.debug(f"[cache] HIT: {method} (ttl={ttl}s)")
+                        return raw
                 else:
                     logger.debug(f"[cache] EXPIRED: {method}")
                     path.unlink(missing_ok=True)
@@ -99,11 +113,21 @@ def cached_call(method: str, fn: Callable, *args: Any, **kwargs: Any) -> Any:
         result = fn(*args, **kwargs)
 
         # 写入缓存（仅成功结果才缓存）
+        # DataFrame 需要特殊序列化：存为 records + columns，读取时重建
         try:
+            if isinstance(result, pd.DataFrame):
+                value = {
+                    "_is_df": True,
+                    "columns": list(result.columns),
+                    "index": list(result.index),
+                    "data": result.to_dict(orient="records"),
+                }
+            else:
+                value = result
             cache_data = {
                 "expire_at": time.time() + ttl,
                 "method": method,
-                "value": result,
+                "value": value,
             }
             path.write_text(
                 json.dumps(cache_data, ensure_ascii=False, default=str),

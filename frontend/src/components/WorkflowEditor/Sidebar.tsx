@@ -19,6 +19,7 @@ const CATEGORY_META: Record<string, { label: string; icon: string; color: string
   sector:      { label: '板块',   icon: '🔄', color: '#FF2D55' },
   flow:        { label: '资金流', icon: '💧', color: '#FF3B30' },
   analysis:    { label: '分析',   icon: '🔬', color: '#64D2FF' },
+  trading:     { label: '交易',   icon: '💹', color: '#FF6B35' },
   general:     { label: '通用',   icon: '⚙️', color: '#8e8e93' },
 };
 
@@ -30,9 +31,15 @@ export function Sidebar() {
   const [customName, setCustomName] = useState('');
   const [showSave, setShowSave] = useState(false);
   const [saveName, setSaveName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     input: true, config: true, agents: true, skills: false, summarizer: true, templates: true,
   });
+
+  // 搜索过滤：匹配名称、描述、角色
+  const q = searchQuery.trim().toLowerCase();
+  const matchAgent = (a: any) => !q || a.name.toLowerCase().includes(q) || a.role.toLowerCase().includes(q);
+  const matchSkill = (s: any) => !q || s.name.toLowerCase().includes(q) || (s.label || '').toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q) || s.category.toLowerCase().includes(q);
 
   useEffect(() => {
     getAgents().then(setAgents).catch(console.error);
@@ -71,15 +78,19 @@ export function Sidebar() {
     if (nodes.some((n) => n.id === role)) return;
     const agent = agents.find((a) => a.role === role);
     const agentSkills = agent?.current_skills || [];
+    const isTrading = role === 'trading';
+    // 交易节点放在总结节点右侧，其他分析师竖排在中间
     const count = nodes.filter((n) => n.type === 'analyst').length;
-    const pos = { x: 420, y: 60 + count * 140 };
+    const pos = isTrading
+      ? { x: 1120, y: 60 + Math.max(count - 1, 0) * 140 }
+      : { x: 420, y: 60 + count * 140 };
 
     const batchNodes: any[] = [];
     const batchEdges: { id: string; source: string; target: string; sourceHandle: string; targetHandle: string }[] = [];
 
-    // Analyst 节点
+    // Analyst 或 Trading 节点
     batchNodes.push({
-      id: role, type: 'analyst', position: pos,
+      id: role, type: isTrading ? 'trading' : 'analyst', position: pos,
       data: { role, label: agent?.name || role, skills: agentSkills },
     });
 
@@ -94,7 +105,7 @@ export function Sidebar() {
           id: nodeId, type: 'skill',
           position: { x: pos.x - 200, y: startY + i * skillGap },
           data: {
-            skillName: skName, label: skName,
+            skillName: skName, label: skMeta?.label || skName,
             category: skMeta?.category || 'general',
             description: skMeta?.description || skName,
             params: {},
@@ -120,7 +131,7 @@ export function Sidebar() {
     addNode({
       id: skill.name, type: 'skill',
       position: { x: 320, y: 300 + count * 100 },
-      data: { skillName: skill.name, label: skill.name, category: skill.category, description: skill.description, params: skill.params || {} },
+      data: { skillName: skill.name, label: skill.label || skill.name, category: skill.category, description: skill.description, params: skill.params || {} },
     });
   };
 
@@ -189,10 +200,31 @@ export function Sidebar() {
 
   return (
     <div style={{
-      width: 220, background: 'var(--bg-panel)', borderRight: '1px solid var(--border)',
-      padding: 12, overflowY: 'auto',
+      width: '100%', height: '100%', background: 'var(--bg-panel)', borderRight: '1px solid var(--border)',
+      padding: 12, overflowY: 'auto', boxSizing: 'border-box',
       backdropFilter: 'var(--blur)', WebkitBackdropFilter: 'var(--blur)',
     }}>
+      {/* ── 搜索框 ── */}
+      <div style={{ position: 'relative', marginBottom: 10 }}>
+        <input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="🔍 搜索节点、技能..."
+          style={{
+            width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border-strong)',
+            borderRadius: 8, padding: '6px 10px 6px 28px', color: 'var(--text)', fontSize: 12,
+            outline: 'none', boxSizing: 'border-box',
+          }}
+        />
+        <span style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: 'var(--text-muted)' }}>🔍</span>
+        {searchQuery && (
+          <span
+            onClick={() => setSearchQuery('')}
+            style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: 'var(--text-muted)', cursor: 'pointer' }}
+          >✕</span>
+        )}
+      </div>
+
       {/* ── 输入节点 ── */}
       <SectionHeader section="input" label="输入" icon="◆" />
       {openSections.input && (
@@ -235,7 +267,7 @@ export function Sidebar() {
       <SectionHeader section="agents" label="分析师 Agent" icon="🤖" />
       {openSections.agents && (
         <>
-          {agents.map((agent) => {
+          {agents.filter(matchAgent).map((agent) => {
             const color = STANCE_COLORS[agent.role] || '#8e8e93';
             const added = nodes.some((n) => n.id === agent.role);
             return (
@@ -288,7 +320,7 @@ export function Sidebar() {
 
       {/* ── 技能节点 ── */}
       <SectionHeader section="skills" label="技能 Skill" icon="🧩" />
-      {openSections.skills && Object.entries(skillsByCategory).map(([cat, catSkills]) => {
+      {openSections.skills && Object.entries(skillsByCategory).filter(([_, catSkills]) => catSkills.some(matchSkill)).map(([cat, catSkills]) => {
         const meta = CATEGORY_META[cat] || CATEGORY_META.general;
         return (
           <div key={cat} style={{ marginBottom: 8 }}>
@@ -296,13 +328,13 @@ export function Sidebar() {
               <span style={{ fontSize: 10 }}>{meta.icon}</span>
               <span style={{ fontSize: 10, color: meta.color, fontWeight: 600 }}>{meta.label}</span>
             </div>
-            {catSkills.map((skill) => {
+            {catSkills.filter(matchSkill).map((skill) => {
               const added = nodes.some((n) => n.id === skill.name);
               return (
                 <div
                   key={skill.name}
                   draggable={!added}
-                  onDragStart={(e) => onDragStart(e, `skill:${skill.name}:${skill.name}:${skill.category}:${skill.description}`)}
+                  onDragStart={(e) => onDragStart(e, `skill:${skill.name}:${skill.label || skill.name}:${skill.category}:${skill.description}`)}
                   onClick={() => addSkillToCanvas(skill)}
                   style={{
                     background: added ? 'var(--bg-input)' : 'var(--bg-card)',
@@ -311,7 +343,7 @@ export function Sidebar() {
                     fontSize: 11, color: 'var(--text-secondary)',
                   }}
                 >
-                  {skill.name}
+                  {skill.label || skill.name}
                 </div>
               );
             })}

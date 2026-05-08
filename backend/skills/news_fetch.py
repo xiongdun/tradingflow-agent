@@ -13,6 +13,7 @@ from backend.skills.registry import skill
     description="获取股票相关新闻资讯，用于新闻面分析和事件驱动分析",
     markets=["a_share", "h_stock", "us_stock"],
     category="news",
+    label="新闻资讯",
 )
 def fetch_news(symbol: str, market: str, limit: int = 10) -> dict[str, Any]:
     """获取股票最近新闻。A股使用 AKShare，港股/美股使用 yfinance"""

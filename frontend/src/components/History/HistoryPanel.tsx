@@ -2,6 +2,7 @@
 // 历史记录面板 — 查询分析历史、查看详情、回测统计
 
 import { useState, useEffect, useCallback } from 'react';
+import Markdown from 'react-markdown';
 import { t } from '../../i18n';
 
 interface HistoryRecord {
@@ -252,13 +253,13 @@ function HistoryDetail({ detail }: { detail: HistoryDetail }) {
       {detail.markdown && (
         <div>
           <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>{t("history.report_title")}</h3>
-          <pre style={{
+          <div style={{
             background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 6,
-            padding: 12, fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap',
-            color: 'var(--text-secondary)', maxHeight: 400, overflow: 'auto',
+            padding: 16, fontSize: 13, lineHeight: 1.8,
+            color: 'var(--text)', maxHeight: 500, overflow: 'auto',
           }}>
-            {detail.markdown}
-          </pre>
+            <Markdown>{detail.markdown}</Markdown>
+          </div>
         </div>
       )}
     </div>

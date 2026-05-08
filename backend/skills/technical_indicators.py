@@ -14,6 +14,7 @@ from backend.skills.registry import skill
     description="计算技术指标（MA/MACD/RSI/BOLL/KDJ），返回当前信号和综合判断",
     markets=["a_share", "h_stock", "us_stock"],
     category="technical",
+    label="技术指标",
 )
 def get_technical_indicators(symbol: str, market: str) -> dict[str, Any]:
     """获取 K 线数据并计算全部技术指标，返回信号判断"""
