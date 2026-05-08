@@ -13,9 +13,18 @@ const BASE = '/api';
  * @returns 解析后的 JSON 数据
  */
 async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...init });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
-  return res.json();
+  try {
+    const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...init });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return res.json();
+  } catch (e: any) {
+    // 网络错误（后端未启动）时静默处理，避免错误风暴
+    if (e instanceof TypeError && e.message.includes('Failed to fetch')) {
+      console.warn(`[API] 后端未连接: ${url}`);
+      return {} as T;
+    }
+    throw e;
+  }
 }
 
 // ─── Agent 管理 API ───

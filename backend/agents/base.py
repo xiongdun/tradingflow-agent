@@ -96,27 +96,30 @@ class BaseAgent(ABC):
             logger.warning(f"[{self.name}] 技能 {skill_meta.name} 执行异常: {e}")
             return skill_meta.name, {"error": str(e)}
 
-    async def _execute_skills(self, symbol: str, market: str) -> dict[str, Any]:
+    async def _execute_skills(self, symbol: str, market: str,
+                               status_callback=None) -> dict[str, Any]:
         """按依赖拓扑序执行技能，无依赖的技能并行执行。
 
         技能函数是同步的（涉及 akshare 等阻塞 I/O），
         通过线程池并行执行避免串行等待。
         """
         results: dict[str, Any] = {}
-        # 按依赖关系分层：无依赖 → 有依赖 → ...
         remaining = list(self._skill_metas)
         executed: set[str] = set()
 
         while remaining:
-            # 找出当前层无未满足依赖的技能
             ready = [s for s in remaining if all(d in executed for d in s.depends_on)]
             if not ready:
-                # 循环依赖或缺失依赖，降级为串行执行
                 logger.warning(f"[{self.name}] 检测到循环或缺失依赖，降级为串行执行")
                 for s in remaining:
                     name, data = await self._execute_one_skill(s, symbol, market, results)
                     results[name] = data
                     executed.add(name)
+                    if status_callback:
+                        try:
+                            await status_callback("skill_done", self.role, self.name, {"skill": name})
+                        except Exception:
+                            pass
                 break
 
             tasks = [self._execute_one_skill(s, symbol, market, results) for s in ready]
@@ -124,16 +127,21 @@ class BaseAgent(ABC):
             for name, data in batch_results:
                 results[name] = data
                 executed.add(name)
+                if status_callback:
+                    try:
+                        await status_callback("skill_done", self.role, self.name, {"skill": name})
+                    except Exception:
+                        pass
             remaining = [s for s in remaining if s.name not in executed]
 
         return results
 
     async def analyze(self, symbol: str, market: str,
-                      cross_review: str = "") -> AgentOpinion:
+                      cross_review: str = "", status_callback=None) -> AgentOpinion:
         """执行完整分析流程：技能收集数据 → LLM 推理 → 结构化输出"""
         # 第 1 步：通过技能获取数据
         logger.info(f"[{self.name}] 开始分析 {symbol}，执行 {len(self._skill_metas)} 个技能...")
-        data = await self._execute_skills(symbol, market)
+        data = await self._execute_skills(symbol, market, status_callback=status_callback)
         logger.info(f"[{self.name}] 技能执行完成，开始 LLM 推理...")
 
         # 第 2 步：构建包含数据的提示词
@@ -170,6 +178,40 @@ class BaseAgent(ABC):
 
     async def run(self, state: dict) -> dict:
         """LangGraph 节点函数 — 异步执行分析并追加意见到状态"""
+        callback = state.get("status_callback")
+
+        # 报告 agent 开始执行
+        if callback:
+            try:
+                await callback("running", self.role, self.name, {})
+            except Exception:
+                pass
+
+        try:
+            opinion = await self.analyze(
+                state["symbol"], state["market"],
+                cross_review=state.get("cross_review", ""),
+                status_callback=callback,
+            )
+        except Exception as e:
+            if callback:
+                try:
+                    await callback("error", self.role, self.name, {"message": str(e)})
+                except Exception:
+                    pass
+            raise
+
+        # 报告 agent 执行完成
+        if callback:
+            try:
+                await callback("done", self.role, self.name, {})
+            except Exception:
+                pass
+
+        #opinions = state.get("opinions", [])
+        #opinions.append(opinion.model_dump())
+        #return {"opinions": opinions}
+
         opinion = await self.analyze(
             state["symbol"], state["market"],
             cross_review=state.get("cross_review", ""),

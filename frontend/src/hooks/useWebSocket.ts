@@ -23,6 +23,9 @@ export function useWebSocket() {
 
   /** 建立 WebSocket 连接，注册消息处理器 */
   const connect = useCallback(() => {
+    // 已达最大重连次数，停止
+    if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) return null;
+
     // 清除待执行的重连定时器
     if (reconnectTimer.current) {
       clearTimeout(reconnectTimer.current);
@@ -35,7 +38,10 @@ export function useWebSocket() {
     wsRef.current = ws;
 
     // 连接成功时重置重连计数
-    ws.onopen = () => { reconnectAttempts.current = 0; };
+    ws.onopen = () => {
+      reconnectAttempts.current = 0;
+      store.addProgress('✅ WebSocket 已连接');
+    };
 
     // 处理后端推送的消息
     ws.onmessage = (event) => {
@@ -43,7 +49,12 @@ export function useWebSocket() {
       switch (msg.type) {
         case 'status':
           // 状态变更：started（工作流启动）、running（分析中）、completed（完成）
-          if (msg.status === 'started') store.addProgress(`🚀 工作流开始: ${msg.workflow}`);
+          if (msg.status === 'started') {
+            store.addProgress(`🚀 工作流开始: ${msg.workflow}`);
+            // 从 workflow 定义中提取 agents 列表，让 AgentNodes 开始脉冲
+            const wfAgents: string[] = (msg as any).workflow?.agents?.map((a: any) => a.role) || [];
+            if (wfAgents.length > 0) store.setAnalyzingAgents(wfAgents);
+          }
           if (msg.status === 'running') {
             store.setAnalyzingAgents(msg.agents || []);
             store.addProgress(`⏳ 分析中: ${msg.agents?.join(', ')}`);
@@ -99,6 +110,8 @@ export function useWebSocket() {
         reconnectAttempts.current++;
         store.addProgress(`连接断开，${delay / 1000}秒后重连 (第${reconnectAttempts.current}次)...`);
         reconnectTimer.current = setTimeout(() => connect(), delay);
+      } else if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
+        store.addProgress('⚠️ WebSocket 连接失败，请检查后端服务是否启动');
       }
     };
 
@@ -120,13 +133,23 @@ export function useWebSocket() {
     intentionallyClosed.current = false; // 允许重连
     store.resetAnalysis();   // 清除上次分析结果
     store.setAnalyzing(true); // 标记为分析中
+    reconnectAttempts.current = 0; // 重置重连计数
     const ws = wsRef.current || connect();  // 复用已有连接或新建
+    if (!ws) {
+      store.setAnalyzing(false);
+      store.addProgress('⚠️ 无法建立 WebSocket 连接，请检查后端服务是否启动');
+      return;
+    }
     const payload = { symbol, market, workflow, agents, agent_infos: agentInfos };
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(payload));
     } else {
       // 连接尚未就绪，等待 open 后发送
-      ws.addEventListener('open', () => ws.send(JSON.stringify(payload)), { once: true });
+      const onOpenHandler = () => {
+        ws.removeEventListener('open', onOpenHandler);
+        ws.send(JSON.stringify(payload));
+      };
+      ws.addEventListener('open', onOpenHandler);
     }
   }, [store, connect]);
 

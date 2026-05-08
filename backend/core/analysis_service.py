@@ -4,19 +4,23 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Callable, Awaitable
 
 from loguru import logger
 
 from backend.graph import TEMPLATES_DIR
 from backend.output.report import generate_markdown_report
 
+# 状态回调类型：(status, agent_role, agent_name, extra) -> None
+StatusCallback = Callable[[str, str, str, dict[str, Any]], Awaitable[None]] | None
+
 
 class AnalysisService:
     """统一分析执行服务"""
 
     @staticmethod
-    def workflow_agents(workflow_def: dict[str, Any]) -> list[str]:
+    async def run(symbol: str, market: str, workflow_def: dict[str, Any],
+                  status_callback: StatusCallback = None) -> dict[str, Any]:
         """提取工作流中参与的 Agent 角色，兼容多种模板格式。"""
         mode = workflow_def.get("mode", "parallel")
         if mode == "conditional":
@@ -40,8 +44,10 @@ class AnalysisService:
     async def run(symbol: str, market: str, workflow_def: dict[str, Any]) -> dict[str, Any]:
         """执行分析并返回结果（不持久化）
 
-        Returns:
-            {"report": dict, "opinions": list, "markdown": str}
+        Args:
+            status_callback: 可选的异步回调，用于报告 agent 执行进度
+                签名: async def callback(status, agent_role, agent_name, extra)
+                status: "running" | "skill_done" | "done" | "error"
         """
         from backend.graph.builder import build_from_json
         from backend.core.exceptions import AnalysisError
@@ -62,6 +68,7 @@ class AnalysisService:
                 "error": None,
                 "round": 0,
                 "selected_agents": [],
+                "status_callback": status_callback,
             })
         except Exception as e:
             raise AnalysisError(symbol, str(e)) from e
@@ -72,9 +79,10 @@ class AnalysisService:
         return {"report": final_report, "opinions": opinions, "markdown": md}
 
     @staticmethod
-    async def run_and_save(symbol: str, market: str, workflow_def: dict[str, Any]) -> dict[str, Any]:
+    async def run_and_save(symbol: str, market: str, workflow_def: dict[str, Any],
+                           status_callback: StatusCallback = None) -> dict[str, Any]:
         """执行分析 + 持久化到数据库"""
-        result = await AnalysisService.run(symbol, market, workflow_def)
+        result = await AnalysisService.run(symbol, market, workflow_def, status_callback=status_callback)
         try:
             from backend.repositories.history import save_analysis
             await save_analysis(
