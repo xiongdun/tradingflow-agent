@@ -1,7 +1,7 @@
 // frontend/src/components/WorkflowEditor/Sidebar.tsx
 // 左侧边栏 — 分类折叠面板：输入节点、参数配置、分析师、技能、总结研判、预置模板
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useWorkflowStore } from '../../store/workflowStore';
 import { getAgents, getSkills } from '../../api/client';
 import { t } from '../../i18n';
@@ -32,12 +32,19 @@ export function Sidebar() {
   const [showSave, setShowSave] = useState(false);
   const [saveName, setSaveName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     input: true, config: true, agents: true, skills: false, summarizer: true, templates: true,
   });
 
+  // 搜索防抖：200ms 延迟更新
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 200);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // 搜索过滤：匹配名称、描述、角色
-  const q = searchQuery.trim().toLowerCase();
+  const q = debouncedQuery.trim().toLowerCase();
   const matchAgent = (a: any) => !q || a.name.toLowerCase().includes(q) || a.role.toLowerCase().includes(q);
   const matchSkill = (s: any) => !q || s.name.toLowerCase().includes(q) || (s.label || '').toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q) || s.category.toLowerCase().includes(q);
 
@@ -177,12 +184,15 @@ export function Sidebar() {
     fetch('/api/workflows').then((r) => r.json()).then(useWorkflowStore.getState().setWorkflows).catch(console.error);
   }, []);
 
-  // 按类别分组技能
-  const skillsByCategory: Record<string, SkillInfo[]> = {};
-  skills.forEach((s) => {
-    if (!skillsByCategory[s.category]) skillsByCategory[s.category] = [];
-    skillsByCategory[s.category].push(s);
-  });
+  // 按类别分组技能（memoized）
+  const skillsByCategory = useMemo(() => {
+    const grouped: Record<string, SkillInfo[]> = {};
+    skills.forEach((s) => {
+      if (!grouped[s.category]) grouped[s.category] = [];
+      grouped[s.category].push(s);
+    });
+    return grouped;
+  }, [skills]);
 
   const SectionHeader = ({ section, label, icon }: { section: string; label: string; icon: string }) => (
     <div

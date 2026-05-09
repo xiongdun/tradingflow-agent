@@ -75,7 +75,7 @@ export function TradingViewChart({ height = 400 }: { height?: number }) {
       .catch(() => {});
   }, [opinions, selectedSymbol, selectedMarket, bars]);
 
-  // 创建/重建图表实例
+  // 创建/重建图表实例（仅依赖 height，主题更新由单独的 effect 处理）
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -124,7 +124,30 @@ export function TradingViewChart({ height = 400 }: { height?: number }) {
     };
     window.addEventListener('resize', resize);
     return () => { window.removeEventListener('resize', resize); try { chart.remove(); } catch {} };
-  }, [height, colorScheme, theme]);
+  }, [height]);
+
+  // 主题/颜色方案热更新（通过 applyOptions 避免重建图表）
+  useEffect(() => {
+    if (!chartRef.current || !seriesRef.current) return;
+    const cs = getComputedStyle(document.documentElement);
+    const bg = cs.getPropertyValue('--bg').trim() || '#0f0f13';
+    const border = cs.getPropertyValue('--border').trim() || '#27272a';
+
+    chartRef.current.applyOptions({
+      layout: { background: { color: bg }, textColor: '#d1d5db' },
+      grid: { vertLines: { color: border }, horzLines: { color: border } },
+      timeScale: { borderColor: border },
+      rightPriceScale: { borderColor: border },
+    });
+
+    const upColor = colorScheme === 'cn' ? '#ef4444' : '#22c55e';
+    const downColor = colorScheme === 'cn' ? '#22c55e' : '#ef4444';
+    seriesRef.current.applyOptions({
+      upColor, downColor,
+      borderUpColor: upColor, borderDownColor: downColor,
+      wickUpColor: upColor, wickDownColor: downColor,
+    });
+  }, [colorScheme, theme]);
 
   // K 线数据更新时渲染到图表
   useEffect(() => {

@@ -1,6 +1,7 @@
 // frontend/src/components/Analysis/ReportView.tsx
 // 分析报告视图 — 展示综合研判结果、共识/分歧/风险/机会、各分析师详细观点
 
+import { memo, useMemo } from 'react';
 import { useWorkflowStore } from '../../store/workflowStore';
 import type { AgentOpinion } from '../../types';
 import { t } from '../../i18n';
@@ -155,7 +156,7 @@ function ExportBar() {
   );
 }
 
-function AgentRadarChart({ opinions }: { opinions: any[] }) {
+const AgentRadarChart = memo(function AgentRadarChart({ opinions }: { opinions: any[] }) {
   if (!opinions || opinions.length < 2) return null;
   const cx = 130, cy = 130, r = 100;
   const n = opinions.length;
@@ -197,9 +198,9 @@ function AgentRadarChart({ opinions }: { opinions: any[] }) {
       </svg>
     </div>
   );
-}
+}, (prev, next) => JSON.stringify(prev.opinions) === JSON.stringify(next.opinions));
 
-function StancePieChart({ opinions }: { opinions: any[] }) {
+const StancePieChart = memo(function StancePieChart({ opinions }: { opinions: any[] }) {
   if (!opinions || opinions.length === 0) return null;
   const counts = { bullish: 0, bearish: 0, neutral: 0 };
   opinions.forEach((op) => {
@@ -255,4 +256,4 @@ function StancePieChart({ opinions }: { opinions: any[] }) {
       </div>
     </div>
   );
-}
+}, (prev, next) => JSON.stringify(prev.opinions) === JSON.stringify(next.opinions));

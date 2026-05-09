@@ -1,7 +1,13 @@
 # backend/graph/builder.py
 # 工作流构建器 Facade — 根据模式分发到对应的 Strategy 构建器
 from __future__ import annotations
+import hashlib
+import json
 from typing import Any
+
+# Cache for compiled graphs — keyed by definition hash
+_compile_cache: dict[str, Any] = {}
+_COMPILE_CACHE_MAX = 50
 
 
 def build_parallel_workflow(*args, **kwargs) -> Any:
@@ -86,41 +92,52 @@ def build_from_json(workflow_def: dict[str, Any]) -> Any:
     if errors:
         raise WorkflowBuildError("工作流定义校验失败:\n" + "\n".join(f"  - {e}" for e in errors))
 
+    # Cache lookup — use JSON-stable hash of the definition
+    cache_key = hashlib.md5(
+        json.dumps(workflow_def, sort_keys=True, ensure_ascii=False).encode()
+    ).hexdigest()
+    if cache_key in _compile_cache:
+        return _compile_cache[cache_key]
+
     mode = workflow_def.get("mode", "parallel")
     summarizer_prompt = workflow_def.get("summarizer_prompt", "")
 
     # 条件分支模式
     if mode == "conditional":
         from backend.graph.builders.conditional import build_conditional_workflow
-        return build_conditional_workflow(
+        graph = build_conditional_workflow(
             stages=workflow_def.get("stages", []),
             summarizer_prompt=summarizer_prompt,
         )
-
     # 多轮迭代模式
-    if mode == "multi_round":
+    elif mode == "multi_round":
         from backend.graph.builders.multi_round import build_multi_round_workflow
         agents_raw = workflow_def.get("agents", [])
         agent_roles = agents_raw if (agents_raw and isinstance(agents_raw[0], str)) else [a["role"] for a in agents_raw]
-        return build_multi_round_workflow(
+        graph = build_multi_round_workflow(
             agent_roles=agent_roles,
             rounds=workflow_def.get("rounds", 2),
             summarizer_prompt=summarizer_prompt,
         )
-
     # 自适应模式
-    if mode == "adaptive":
+    elif mode == "adaptive":
         from backend.graph.builders.adaptive import build_adaptive_workflow
-        return build_adaptive_workflow(summarizer_prompt=summarizer_prompt)
-
+        graph = build_adaptive_workflow(summarizer_prompt=summarizer_prompt)
     # 并行模式（默认）
-    from backend.graph.builders.parallel import build_parallel_workflow as _parallel
-    agents_raw = workflow_def.get("agents", [])
-    return _parallel(
-        agent_roles=[a["role"] for a in agents_raw],
-        extra_prompts={a["role"]: a.get("extra_prompt", "") for a in agents_raw if a.get("extra_prompt")},
-        summarizer_prompt=summarizer_prompt,
-        agent_skills={a["role"]: a["skills"] for a in agents_raw if a.get("skills")} or None,
-        agent_names={a["role"]: a["name"] for a in agents_raw if a.get("name")} or None,
-        system_prompts={a["role"]: a["system_prompt"] for a in agents_raw if a.get("system_prompt")} or None,
-    )
+    else:
+        from backend.graph.builders.parallel import build_parallel_workflow as _parallel
+        agents_raw = workflow_def.get("agents", [])
+        graph = _parallel(
+            agent_roles=[a["role"] for a in agents_raw],
+            extra_prompts={a["role"]: a.get("extra_prompt", "") for a in agents_raw if a.get("extra_prompt")},
+            summarizer_prompt=summarizer_prompt,
+            agent_skills={a["role"]: a["skills"] for a in agents_raw if a.get("skills")} or None,
+            agent_names={a["role"]: a["name"] for a in agents_raw if a.get("name")} or None,
+            system_prompts={a["role"]: a["system_prompt"] for a in agents_raw if a.get("system_prompt")} or None,
+        )
+
+    # Store in cache with size limit
+    if len(_compile_cache) >= _COMPILE_CACHE_MAX:
+        _compile_cache.pop(next(iter(_compile_cache)))
+    _compile_cache[cache_key] = graph
+    return graph

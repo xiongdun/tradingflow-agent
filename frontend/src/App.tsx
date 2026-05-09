@@ -1,18 +1,19 @@
 // frontend/src/App.tsx
 // 应用根组件 — 主布局：顶部控制栏 + 标签页切换（工作流编排 / 分析结果）
 
-import { useState, useEffect, useCallback, useRef, Component, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, Component, type ReactNode, lazy, Suspense } from 'react';
 import { Sidebar } from './components/WorkflowEditor/Sidebar';
 import { WorkflowEditorCanvas } from './components/WorkflowEditor/Canvas';
 import { NodeConfig } from './components/WorkflowEditor/NodeConfig';
 import { ControlBar } from './components/common/ControlBar';
 import { ToastContainer } from './components/common/Toast';
-import { ReportView } from './components/Analysis/ReportView';
-import { TradingViewChart } from './components/TradingView/Chart';
-import { HistoryPanel } from './components/History/HistoryPanel';
 import { t, loadLocale } from './i18n';
-import { WatchlistPanel} from './components/Watchlist/WatchlistPanel';
-import { SchedulePanel } from './components/Schedule/SchedulePanel';
+
+const ReportView = lazy(() => import('./components/Analysis/ReportView').then(m => ({ default: m.ReportView })));
+const TradingViewChart = lazy(() => import('./components/TradingView/Chart').then(m => ({ default: m.TradingViewChart })));
+const HistoryPanel = lazy(() => import('./components/History/HistoryPanel').then(m => ({ default: m.HistoryPanel })));
+const WatchlistPanel = lazy(() => import('./components/Watchlist/WatchlistPanel').then(m => ({ default: m.WatchlistPanel })));
+const SchedulePanel = lazy(() => import('./components/Schedule/SchedulePanel').then(m => ({ default: m.SchedulePanel })));
 
 /** 可拖拽调整宽度的面板容器 */
 function ResizablePanel({
@@ -169,31 +170,41 @@ export default function App() {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ flex: '0 0 40%', minHeight: 300, padding: 12 }}>
               <ErrorBoundary label="K线图表">
-                <TradingViewChart height={280} />
+                <Suspense fallback={<div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>加载中...</div>}>
+                  <TradingViewChart height={280} />
+                </Suspense>
               </ErrorBoundary>
             </div>
             <div style={{ flex: 1, borderTop: '1px solid var(--border)', overflow: 'auto' }}>
               <ErrorBoundary label="分析报告">
-                <ReportView />
+                <Suspense fallback={<div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>加载中...</div>}>
+                  <ReportView />
+                </Suspense>
               </ErrorBoundary>
             </div>
           </div>
         ) : tab === 'history' ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <ErrorBoundary label="历史记录">
-              <HistoryPanel />
+              <Suspense fallback={<div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>加载中...</div>}>
+                <HistoryPanel />
+              </Suspense>
             </ErrorBoundary>
           </div>
         ) : tab === 'watchlist' ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <ErrorBoundary label="自选股">
-              <WatchlistPanel />
+              <Suspense fallback={<div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>加载中...</div>}>
+                <WatchlistPanel />
+              </Suspense>
             </ErrorBoundary>
           </div>
         ) : (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <ErrorBoundary label="定时任务">
-              <SchedulePanel />
+              <Suspense fallback={<div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>加载中...</div>}>
+                <SchedulePanel />
+              </Suspense>
             </ErrorBoundary>
           </div>
         )}

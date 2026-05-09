@@ -1,7 +1,7 @@
 // frontend/src/components/WorkflowEditor/Canvas.tsx
 // 工作流画布 — React Flow 拖拽式画布，支持节点拖放、连线、缩放、小地图
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useMemo } from 'react';
 import {
   ReactFlow,
   Background,
@@ -254,7 +254,7 @@ function FlowCanvas() {
   }, []);
 
   // 为每条边设置 inline style：skill→agent 用虚线，其余实线，选中高亮
-  const styledEdges = edges.map((e) => {
+  const styledEdges = useMemo(() => edges.map((e) => {
     const srcNode = nodes.find((n) => n.id === e.source);
     const isSkillEdge = srcNode?.type === 'skill';
     const isSelected = e.id === selectedEdgeId;
@@ -269,7 +269,7 @@ function FlowCanvas() {
         ...(isSkillEdge ? { strokeDasharray: '6 4' } : {}),
       },
     };
-  });
+  }), [edges, nodes, selectedEdgeId]);
 
   return (
     <ReactFlow
