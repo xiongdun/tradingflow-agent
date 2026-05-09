@@ -1,0 +1,66 @@
+{
+  "version": 2,
+  "name": "量化混合分析",
+  "description": "v2 混合工作流：技能获取数据 → Agent 分析 → 条件分支 → 风险评估 → 汇总报告",
+  "nodes": [
+    {
+      "id": "kline",
+      "type": "skill",
+      "skill": "kline_data",
+      "output_key": "kline",
+      "params": {"period": "daily", "days": 120}
+    },
+    {
+      "id": "quote",
+      "type": "skill",
+      "skill": "realtime_quote",
+      "output_key": "quote"
+    },
+    {
+      "id": "technical_analysis",
+      "type": "agent",
+      "role": "technical",
+      "skills": ["kline_data", "realtime_quote"],
+      "name": "技术分析师"
+    },
+    {
+      "id": "quantitative",
+      "type": "agent",
+      "role": "quant",
+      "skills": ["kline_data", "realtime_quote"],
+      "name": "量化分析师"
+    },
+    {
+      "id": "risk_gate",
+      "type": "condition",
+      "field": "opinions",
+      "rules": [
+        {"label": "has_bearish", "description": "有看空意见时进入风险评估"},
+        {"label": "low_confidence", "description": "置信度低时进入风险评估"}
+      ]
+    },
+    {
+      "id": "risk_assessment",
+      "type": "agent",
+      "role": "risk",
+      "skills": ["kline_data"],
+      "name": "风险评估师",
+      "extra_prompt": "基于技术分析和量化分析结果，重点评估下行风险。"
+    }
+  ],
+  "edges": [
+    {"source": "START", "target": "kline"},
+    {"source": "START", "target": "quote"},
+    {"source": "kline", "target": "technical_analysis"},
+    {"source": "quote", "target": "technical_analysis"},
+    {"source": "kline", "target": "quantitative"},
+    {"source": "quote", "target": "quantitative"},
+    {"source": "technical_analysis", "target": "risk_gate"},
+    {"source": "quantitative", "target": "risk_gate"},
+    {"source": "risk_gate", "target": "risk_assessment", "condition": "has_bearish"},
+    {"source": "risk_gate", "target": "risk_assessment", "condition": "low_confidence"},
+    {"source": "risk_gate", "target": "summarizer", "condition": "default"},
+    {"source": "risk_assessment", "target": "summarizer"}
+  ],
+  "summarizer_prompt": "这是一份包含量化因子分析的综合报告。请综合技术分析、量化分析和风险评估（如有），给出投资建议。"
+}

@@ -1,7 +1,7 @@
 // frontend/src/api/client.ts
 // API 客户端 — 封装所有后端 REST API 调用，统一错误处理
 
-import type { AgentInfo, SkillInfo, WorkflowTemplate, AppConfig, FinalReport } from '../types';
+import type { AgentInfo, SkillInfo, WorkflowTemplate, AppConfig, FinalReport, PluginInfo, PluginListing, AdapterTypeInfo } from '../types';
 
 // API 基础路径
 const BASE = '/api';
@@ -75,3 +75,42 @@ export const getMarkers = (symbol: string, market: string, opinions: any[]) =>
   fetchJSON<{ markers: any[]; opinion_lines: any[] }>(
     `${BASE}/market/markers`, { method: 'POST', body: JSON.stringify({ symbol, market, opinions }) }
   );
+
+// ─── 插件管理 API ───
+
+/** 列出所有已安装插件 */
+export const getPlugins = () => fetchJSON<PluginInfo[]>(`${BASE}/plugins`);
+/** 安装插件（支持 source: local/git/pip/registry/url） */
+export const installPlugin = (source: string, sourceUrl: string, options?: Record<string, string>) =>
+  fetchJSON<{ status: string; name?: string; error?: string }>(`${BASE}/plugins/install`, {
+    method: 'POST', body: JSON.stringify({ source, url: sourceUrl, ...options }),
+  });
+/** 卸载插件 */
+export const uninstallPlugin = (name: string) =>
+  fetchJSON<{ status: string }>(`${BASE}/plugins/${name}`, { method: 'DELETE' });
+/** 启用插件 */
+export const enablePlugin = (name: string) =>
+  fetchJSON<{ status: string }>(`${BASE}/plugins/${name}/enable`, { method: 'POST' });
+/** 禁用插件 */
+export const disablePlugin = (name: string) =>
+  fetchJSON<{ status: string }>(`${BASE}/plugins/${name}/disable`, { method: 'POST' });
+/** 浏览远程插件市场 */
+export const searchMarketplace = (query?: string, category?: string) => {
+  const p = new URLSearchParams();
+  if (query) p.set('query', query);
+  if (category) p.set('category', category);
+  return fetchJSON<PluginListing[]>(`${BASE}/plugins/marketplace?${p}`);
+};
+
+// ─── 适配器管理 API ───
+
+/** 列出所有可用适配器类型 */
+export const getAdapterTypes = () => fetchJSON<AdapterTypeInfo[]>(`${BASE}/adapters`);
+/** 注册新的外部项目为工作流节点 */
+export const registerAdapter = (name: string, adapterType: string, description: string, config: Record<string, unknown>) =>
+  fetchJSON<{ status: string; adapter?: string; error?: string }>(`${BASE}/adapters`, {
+    method: 'POST', body: JSON.stringify({ name, adapter_type: adapterType, description, config }),
+  });
+/** 测试适配器连接 */
+export const testAdapter = (name: string) =>
+  fetchJSON<{ status: string; result?: unknown; error?: string }>(`${BASE}/adapters/${name}/test`, { method: 'POST' });

@@ -1,49 +1,56 @@
 // frontend/src/components/WorkflowEditor/Sidebar.tsx
 // 左侧边栏 — 分类折叠面板：输入节点、参数配置、分析师、技能、总结研判、预置模板
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useWorkflowStore } from '../../store/workflowStore';
-import { getAgents, getSkills } from '../../api/client';
+import { getAgents, getSkills, getAdapterTypes } from '../../api/client';
 import { t } from '../../i18n';
-import { STANCE_COLORS } from '../../constants/theme';
-import type { SkillInfo } from '../../types';
+import { STANCE_COLORS, NODE_TYPE_COLORS, CATEGORY_COLORS, CATEGORY_ICONS } from '../../constants/theme';
+import type { SkillInfo, AdapterTypeInfo } from '../../types';
 
-/** 技能类别中文名 + 图标 */
-const CATEGORY_META: Record<string, { label: string; icon: string; color: string }> = {
-  fundamental: { label: '基本面', icon: '📊', color: '#34C759' },
-  technical:   { label: '技术面', icon: '📈', color: '#007AFF' },
-  sentiment:   { label: '情绪面', icon: '🔥', color: '#FF9500' },
-  news:        { label: '新闻面', icon: '📰', color: '#AF52DE' },
-  macro:       { label: '宏观面', icon: '🌐', color: '#5AC8FA' },
-  data:        { label: '数据',   icon: '💾', color: '#8e8e93' },
-  sector:      { label: '板块',   icon: '🔄', color: '#FF2D55' },
-  flow:        { label: '资金流', icon: '💧', color: '#FF3B30' },
-  analysis:    { label: '分析',   icon: '🔬', color: '#64D2FF' },
-  trading:     { label: '交易',   icon: '💹', color: '#FF6B35' },
-  general:     { label: '通用',   icon: '⚙️', color: '#8e8e93' },
+/** 技能类别中文名（icon/color 从共享 theme.ts 导入，避免重复定义） */
+const CATEGORY_LABELS: Record<string, string> = {
+  fundamental: '基本面', technical: '技术面', sentiment: '情绪面',
+  news: '新闻面', macro: '宏观面', data: '数据',
+  sector: '板块', flow: '资金流', analysis: '分析',
+  trading: '交易', general: '通用',
 };
 
-const CUSTOM_COLORS = ['#34C759', '#007AFF', '#FF9500', '#AF52DE', '#5AC8FA', '#FF3B30', '#FF2D55', '#64D2FF', '#FFCC00'];
-
 export function Sidebar() {
-  const { agents, setAgents, skills, setSkills, nodes, addNode, saveWorkflow, exportWorkflow } = useWorkflowStore();
+  const agents = useWorkflowStore((s) => s.agents);
+  const setAgents = useWorkflowStore((s) => s.setAgents);
+  const skills = useWorkflowStore((s) => s.skills);
+  const setSkills = useWorkflowStore((s) => s.setSkills);
+  const nodes = useWorkflowStore((s) => s.nodes);
+  const addNode = useWorkflowStore((s) => s.addNode);
+  const saveWorkflow = useWorkflowStore((s) => s.saveWorkflow);
+  const exportWorkflow = useWorkflowStore((s) => s.exportWorkflow);
   const [showCustom, setShowCustom] = useState(false);
   const [customName, setCustomName] = useState('');
   const [showSave, setShowSave] = useState(false);
   const [saveName, setSaveName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    input: true, config: true, agents: true, skills: false, summarizer: true, templates: true,
+    input: true, config: true, agents: true, skills: false, adapters: true, events: true, summarizer: true, templates: true,
   });
+  const [adapterTypes, setAdapterTypes] = useState<AdapterTypeInfo[]>([]);
+
+  // 搜索防抖：200ms 延迟更新
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 200);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // 搜索过滤：匹配名称、描述、角色
-  const q = searchQuery.trim().toLowerCase();
+  const q = debouncedQuery.trim().toLowerCase();
   const matchAgent = (a: any) => !q || a.name.toLowerCase().includes(q) || a.role.toLowerCase().includes(q);
   const matchSkill = (s: any) => !q || s.name.toLowerCase().includes(q) || (s.label || '').toLowerCase().includes(q) || (s.description || '').toLowerCase().includes(q) || s.category.toLowerCase().includes(q);
 
   useEffect(() => {
     getAgents().then(setAgents).catch(console.error);
     getSkills().then(setSkills).catch(console.error);
+    getAdapterTypes().then(setAdapterTypes).catch(console.error);
   }, [setAgents, setSkills]);
 
   const toggle = (section: string) => setOpenSections((s) => ({ ...s, [section]: !s[section] }));
@@ -177,12 +184,15 @@ export function Sidebar() {
     fetch('/api/workflows').then((r) => r.json()).then(useWorkflowStore.getState().setWorkflows).catch(console.error);
   }, []);
 
-  // 按类别分组技能
-  const skillsByCategory: Record<string, SkillInfo[]> = {};
-  skills.forEach((s) => {
-    if (!skillsByCategory[s.category]) skillsByCategory[s.category] = [];
-    skillsByCategory[s.category].push(s);
-  });
+  // 按类别分组技能（memoized）
+  const skillsByCategory = useMemo(() => {
+    const grouped: Record<string, SkillInfo[]> = {};
+    skills.forEach((s) => {
+      if (!grouped[s.category]) grouped[s.category] = [];
+      grouped[s.category].push(s);
+    });
+    return grouped;
+  }, [skills]);
 
   const SectionHeader = ({ section, label, icon }: { section: string; label: string; icon: string }) => (
     <div
@@ -321,12 +331,12 @@ export function Sidebar() {
       {/* ── 技能节点 ── */}
       <SectionHeader section="skills" label="技能 Skill" icon="🧩" />
       {openSections.skills && Object.entries(skillsByCategory).filter(([_, catSkills]) => catSkills.some(matchSkill)).map(([cat, catSkills]) => {
-        const meta = CATEGORY_META[cat] || CATEGORY_META.general;
+        const label = CATEGORY_LABELS[cat] || CATEGORY_LABELS.general;
         return (
           <div key={cat} style={{ marginBottom: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3, paddingLeft: 16 }}>
-              <span style={{ fontSize: 10 }}>{meta.icon}</span>
-              <span style={{ fontSize: 10, color: meta.color, fontWeight: 600 }}>{meta.label}</span>
+              <span style={{ fontSize: 10 }}>{CATEGORY_ICONS[cat] || '⚙️'}</span>
+              <span style={{ fontSize: 10, color: CATEGORY_COLORS[cat] || '#8e8e93', fontWeight: 600 }}>{label}</span>
             </div>
             {catSkills.filter(matchSkill).map((skill) => {
               const added = nodes.some((n) => n.id === skill.name);
@@ -350,6 +360,91 @@ export function Sidebar() {
           </div>
         );
       })}
+
+      {/* ── 适配器节点 ── */}
+      <SectionHeader section="adapters" label="适配器 Adapter" icon="🧩" />
+      {openSections.adapters && (
+        <>
+          {adapterTypes.map((at) => {
+            const added = nodes.some((n) => n.type === 'adapter' && (n.data as any).adapterType === at.type);
+            return (
+              <div
+                key={at.type}
+                draggable={!added}
+                onDragStart={(e) => onDragStart(e, `adapter:${at.type}:${at.name}`)}
+                onClick={() => {
+                  if (added) return;
+                  const count = nodes.filter((n) => n.type === 'adapter').length;
+                  addNode({
+                    id: `adapter_${at.type}_${Date.now()}`,
+                    type: 'adapter',
+                    position: { x: 320, y: 400 + count * 100 },
+                    data: { label: at.name, adapterType: at.type, adapterName: at.type, description: '', config: {}, outputKey: `${at.type}_result` },
+                  });
+                }}
+                style={{
+                  background: added ? 'var(--bg-input)' : 'var(--bg-card)',
+                  border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', marginBottom: 4,
+                  cursor: added ? 'default' : 'grab',
+                  opacity: added ? 0.4 : 1,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: NODE_TYPE_COLORS.adapter }} />
+                  <span style={{ color: 'var(--text)', fontSize: 12, fontWeight: 600 }}>{at.name}</span>
+                </div>
+                <div style={{ fontSize: 9, color: 'var(--text-muted)', marginLeft: 16, marginTop: 1 }}>{at.description}</div>
+              </div>
+            );
+          })}
+          {adapterTypes.length === 0 && (
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '4px 12px' }}>暂无可用适配器</div>
+          )}
+        </>
+      )}
+
+      {/* ── 事件触发器 ── */}
+      <SectionHeader section="events" label="事件触发 Event" icon="⚡" />
+      {openSections.events && (
+        <>
+          {[
+            { type: 'price_alert', label: '价格警报', desc: '股价达到阈值时触发' },
+            { type: 'indicator_signal', label: '指标信号', desc: '技术指标产生信号时触发' },
+            { type: 'news_event', label: '新闻事件', desc: '包含关键词的新闻触发' },
+          ].map((evt) => {
+            const added = nodes.some((n) => n.type === 'event_trigger' && (n.data as any).eventType === evt.type);
+            return (
+              <div
+                key={evt.type}
+                draggable={!added}
+                onDragStart={(e) => onDragStart(e, `event_trigger:${evt.type}:${evt.label}`)}
+                onClick={() => {
+                  if (added) return;
+                  const count = nodes.filter((n) => n.type === 'event_trigger').length;
+                  addNode({
+                    id: `trigger_${Date.now()}`,
+                    type: 'event_trigger',
+                    position: { x: 320, y: 400 + count * 100 },
+                    data: { label: evt.label, eventType: evt.type, conditions: {}, workflowName: '', enabled: true },
+                  });
+                }}
+                style={{
+                  background: added ? 'var(--bg-input)' : 'var(--bg-card)',
+                  border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px', marginBottom: 4,
+                  cursor: added ? 'default' : 'grab',
+                  opacity: added ? 0.4 : 1,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: NODE_TYPE_COLORS.event_trigger }} />
+                  <span style={{ color: 'var(--text)', fontSize: 12, fontWeight: 600 }}>{evt.label}</span>
+                </div>
+                <div style={{ fontSize: 9, color: 'var(--text-muted)', marginLeft: 16, marginTop: 1 }}>{evt.desc}</div>
+              </div>
+            );
+          })}
+        </>
+      )}
 
       {/* ── 总结研判 ── */}
       <SectionHeader section="summarizer" label="总结研判" icon="✦" />
@@ -407,13 +502,16 @@ export function Sidebar() {
 
 /** 预置工作流模板列表 */
 function WorkflowTemplates() {
-  const { workflows, setWorkflows, loadFromTemplate, agents } = useWorkflowStore();
+  const workflows = useWorkflowStore((s) => s.workflows);
+  const setWorkflows = useWorkflowStore((s) => s.setWorkflows);
+  const loadFromTemplate = useWorkflowStore((s) => s.loadFromTemplate);
+  const agents = useWorkflowStore((s) => s.agents);
 
   useEffect(() => {
     if (workflows.length === 0) {
       fetch('/api/workflows').then((r) => r.json()).then(setWorkflows).catch(console.error);
     }
-  }, [workflows.length, setWorkflows, agents]);
+  }, [workflows.length, setWorkflows]);
 
   return (
     <>

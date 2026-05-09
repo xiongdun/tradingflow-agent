@@ -12,7 +12,7 @@ COPY pyproject.toml .
 RUN pip install --no-cache-dir -e . 2>/dev/null || pip install --no-cache-dir \
     langgraph langchain langchain-openai fastapi "uvicorn[standard]" websockets \
     typer rich pydantic pydantic-settings python-dotenv akshare yfinance \
-    pandas numpy httpx loguru
+    pandas numpy httpx loguru slowapi tenacity
 
 # Copy source
 COPY backend/ backend/

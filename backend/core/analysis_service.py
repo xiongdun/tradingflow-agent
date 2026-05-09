@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Callable, Awaitable
 
 from loguru import logger
@@ -14,14 +15,29 @@ from backend.output.report import generate_markdown_report
 # 状态回调类型：(status, agent_role, agent_name, extra) -> None
 StatusCallback = Callable[[str, str, str, dict[str, Any]], Awaitable[None]] | None
 
+# 工作流模板名称白名单正则 — 仅允许字母、数字、下划线、连字符
+_SAFE_NAME_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
+# 单次分析最大 Agent 数量（防止 LLM 费用失控）
+MAX_AGENTS_PER_ANALYSIS = 10
+
 
 class AnalysisService:
     """统一分析执行服务"""
 
     @staticmethod
-    async def run(symbol: str, market: str, workflow_def: dict[str, Any],
-                  status_callback: StatusCallback = None) -> dict[str, Any]:
-        """提取工作流中参与的 Agent 角色，兼容多种模板格式。"""
+    def workflow_agents(workflow_def: dict[str, Any]) -> list[str]:
+        """提取工作流中参与的 Agent 角色，兼容 v1/v2 格式。"""
+        # v2 格式：从 nodes 中提取 agent 类型节点
+        version = workflow_def.get("version", 1)
+        if version == 2:
+            roles: list[str] = []
+            for node in workflow_def.get("nodes", []):
+                if node.get("type") == "agent":
+                    role = node.get("role", "")
+                    if role and role not in roles:
+                        roles.append(role)
+            return roles
+
         mode = workflow_def.get("mode", "parallel")
         if mode == "conditional":
             roles: list[str] = []
@@ -41,7 +57,8 @@ class AnalysisService:
         ]
 
     @staticmethod
-    async def run(symbol: str, market: str, workflow_def: dict[str, Any]) -> dict[str, Any]:
+    async def run(symbol: str, market: str, workflow_def: dict[str, Any],
+                  status_callback: StatusCallback = None) -> dict[str, Any]:
         """执行分析并返回结果（不持久化）
 
         Args:
@@ -51,6 +68,12 @@ class AnalysisService:
         """
         from backend.graph.builder import build_from_json
         from backend.core.exceptions import AnalysisError
+
+        # 预算控制：限制 Agent 数量
+        agents_raw = workflow_def.get("agents", [])
+        agent_count = len(workflow_def.get("stages", [0])) if workflow_def.get("mode") == "conditional" else len(agents_raw)
+        if agent_count > MAX_AGENTS_PER_ANALYSIS:
+            raise AnalysisError(symbol, f"分析 Agent 数量超限: {agent_count} > {MAX_AGENTS_PER_ANALYSIS}")
 
         try:
             graph = build_from_json(workflow_def)
@@ -69,6 +92,8 @@ class AnalysisService:
                 "round": 0,
                 "selected_agents": [],
                 "status_callback": status_callback,
+                "dynamic_data": {},
+                "loop_counter": 0,
             })
         except Exception as e:
             raise AnalysisError(symbol, str(e)) from e
@@ -100,8 +125,19 @@ class AnalysisService:
 
     @staticmethod
     def load_workflow(workflow_name: str) -> dict[str, Any] | None:
-        """从模板目录加载工作流定义"""
+        """从模板目录加载工作流定义（含路径穿越防护）"""
+        if not _SAFE_NAME_RE.match(workflow_name):
+            logger.warning(f"[analysis] 非法工作流名称: {workflow_name!r}")
+            return None
         template_path = TEMPLATES_DIR / f"{workflow_name}.json"
+        # 二次校验：确保解析后的路径仍在模板目录内
+        try:
+            resolved = template_path.resolve()
+            if not str(resolved).startswith(str(TEMPLATES_DIR.resolve())):
+                logger.warning(f"[analysis] 路径穿越尝试: {workflow_name!r}")
+                return None
+        except Exception:
+            return None
         if not template_path.exists():
             return None
         return json.loads(template_path.read_text(encoding="utf-8"))

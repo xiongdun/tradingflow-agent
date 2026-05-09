@@ -28,7 +28,7 @@ def merge_opinions(existing: list, new: list) -> list:
     return deduped
 
 
-class AgentState(TypedDict):
+class AgentState(TypedDict, total=False):
     """分析图中所有节点共享的全局状态
 
     - symbol/market: 待分析的股票和市场
@@ -36,7 +36,9 @@ class AgentState(TypedDict):
     - final_report: 总结分析师生成的最终报告
     - workflow_name/status/error: 工作流元数据
     - round: 当前迭代轮次（多轮模式使用）
-    - selected_agents: 自适应模式选中的 Agent 列表
+    - selected_agents: 自适应模式选中的 Agent 角色列表
+    - dynamic_data: v2 工作流动态节点输出的键值存储
+    - loop_counter: v2 循环节点迭代计数
     """
     symbol: str                         # 股票代码
     market: str                         # 市场类型
@@ -48,3 +50,5 @@ class AgentState(TypedDict):
     round: int                           # 当前迭代轮次（多轮模式，默认 0）
     selected_agents: list[str]           # 自适应模式选中的 Agent 角色列表
     status_callback: Any                 # 可选异步回调 (status, role, name, extra) -> None
+    dynamic_data: dict[str, Any]         # v2 动态节点输出的键值存储
+    loop_counter: int                    # v2 循环节点迭代计数

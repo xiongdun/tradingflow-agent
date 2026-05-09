@@ -1,7 +1,13 @@
 # backend/graph/builder.py
-# 工作流构建器 Facade — 根据模式分发到对应的 Strategy 构建器
+# 工作流构建器 Facade — 根据版本和模式分发到对应的构建器
 from __future__ import annotations
+import hashlib
+import json
 from typing import Any
+
+# Cache for compiled graphs — keyed by definition hash
+_compile_cache: dict[str, Any] = {}
+_COMPILE_CACHE_MAX = 50
 
 
 def build_parallel_workflow(*args, **kwargs) -> Any:
@@ -12,21 +18,21 @@ def build_parallel_workflow(*args, **kwargs) -> Any:
 def validate_workflow_def(workflow_def: dict[str, Any]) -> list[str]:
     """校验工作流定义的完整性，返回错误列表（空列表表示通过）。
 
-    检查项：
-    - version 是否支持
-    - mode 是否合法
-    - agents 列表中 role 是否已注册
-    - skills 是否存在
+    支持 v1（mode-based）和 v2（node-graph）两种格式。
     """
+    version = workflow_def.get("version", 1)
+
+    # v2 格式使用独立的校验器
+    if version == 2:
+        from backend.plugins.workflow_engine import validate_v2_workflow
+        return validate_v2_workflow(workflow_def)
+
+    # ── v1 校验 ──
     from backend.agents.registry import get_agent_class
     from backend.skills.registry import get_skill
     from backend.agents.generic import GenericAgent
 
     errors: list[str] = []
-
-    version = workflow_def.get("version")
-    if version is not None and version > 1:
-        errors.append(f"不支持的工作流模板版本: {version}（当前仅支持 version 1）")
 
     mode = workflow_def.get("mode", "parallel")
     valid_modes = {"parallel", "conditional", "multi_round", "adaptive"}
@@ -45,7 +51,6 @@ def validate_workflow_def(workflow_def: dict[str, Any]) -> list[str]:
         if cls is None:
             errors.append(f"未知的 Agent 角色: {role}")
         elif cls is not GenericAgent:
-            # GenericAgent 接受任意 role，只校验已注册 Agent 的 skills
             skills = agent_def.get("skills", []) if isinstance(agent_def, dict) else []
             for skill_name in skills:
                 if get_skill(skill_name) is None:
@@ -74,11 +79,9 @@ def validate_workflow_def(workflow_def: dict[str, Any]) -> list[str]:
 def build_from_json(workflow_def: dict[str, Any]) -> Any:
     """从 JSON 工作流定义构建执行图。
 
-    支持三种模式：
-    - parallel（默认）：所有分析师并行执行
-    - conditional：按阶段条件执行
-    - multi_round：多轮迭代交叉审阅
-    - adaptive：根据股票特征动态选择分析师
+    支持两种格式：
+    - v1（version 缺失或 1）：mode-based 构建（parallel/conditional/multi_round/adaptive）
+    - v2：显式 nodes + edges 拓扑，支持混合节点类型（skill/adapter/agent/condition/loop）
     """
     from backend.core.exceptions import WorkflowBuildError
 
@@ -86,10 +89,35 @@ def build_from_json(workflow_def: dict[str, Any]) -> Any:
     if errors:
         raise WorkflowBuildError("工作流定义校验失败:\n" + "\n".join(f"  - {e}" for e in errors))
 
+    # Cache lookup — use JSON-stable hash of the definition
+    cache_key = hashlib.md5(
+        json.dumps(workflow_def, sort_keys=True, ensure_ascii=False).encode()
+    ).hexdigest()
+    if cache_key in _compile_cache:
+        return _compile_cache[cache_key]
+
+    version = workflow_def.get("version", 1)
+
+    # ── v2 工作流 ──
+    if version == 2:
+        from backend.plugins.workflow_engine import build_v2_workflow
+        graph = build_v2_workflow(workflow_def)
+    # ── v1 工作流 ──
+    else:
+        graph = _build_v1(workflow_def)
+
+    # Store in cache with size limit
+    if len(_compile_cache) >= _COMPILE_CACHE_MAX:
+        _compile_cache.pop(next(iter(_compile_cache)))
+    _compile_cache[cache_key] = graph
+    return graph
+
+
+def _build_v1(workflow_def: dict[str, Any]) -> Any:
+    """构建 v1 格式的工作流（mode-based）"""
     mode = workflow_def.get("mode", "parallel")
     summarizer_prompt = workflow_def.get("summarizer_prompt", "")
 
-    # 条件分支模式
     if mode == "conditional":
         from backend.graph.builders.conditional import build_conditional_workflow
         return build_conditional_workflow(
@@ -97,18 +125,19 @@ def build_from_json(workflow_def: dict[str, Any]) -> Any:
             summarizer_prompt=summarizer_prompt,
         )
 
-    # 多轮迭代模式
     if mode == "multi_round":
         from backend.graph.builders.multi_round import build_multi_round_workflow
         agents_raw = workflow_def.get("agents", [])
-        agent_roles = agents_raw if (agents_raw and isinstance(agents_raw[0], str)) else [a["role"] for a in agents_raw]
+        agent_roles = (
+            agents_raw if (agents_raw and isinstance(agents_raw[0], str))
+            else [a["role"] for a in agents_raw]
+        )
         return build_multi_round_workflow(
             agent_roles=agent_roles,
             rounds=workflow_def.get("rounds", 2),
             summarizer_prompt=summarizer_prompt,
         )
 
-    # 自适应模式
     if mode == "adaptive":
         from backend.graph.builders.adaptive import build_adaptive_workflow
         return build_adaptive_workflow(summarizer_prompt=summarizer_prompt)

@@ -208,14 +208,6 @@ class BaseAgent(ABC):
             except Exception:
                 pass
 
-        #opinions = state.get("opinions", [])
-        #opinions.append(opinion.model_dump())
-        #return {"opinions": opinions}
-
-        opinion = await self.analyze(
-            state["symbol"], state["market"],
-            cross_review=state.get("cross_review", ""),
-        )
         opinion_data = opinion.model_dump()
         if "round" in state:
             opinion_data["round"] = state.get("round", 0)
