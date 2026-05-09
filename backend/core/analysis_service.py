@@ -26,7 +26,18 @@ class AnalysisService:
 
     @staticmethod
     def workflow_agents(workflow_def: dict[str, Any]) -> list[str]:
-        """提取工作流中参与的 Agent 角色，兼容多种模板格式。"""
+        """提取工作流中参与的 Agent 角色，兼容 v1/v2 格式。"""
+        # v2 格式：从 nodes 中提取 agent 类型节点
+        version = workflow_def.get("version", 1)
+        if version == 2:
+            roles: list[str] = []
+            for node in workflow_def.get("nodes", []):
+                if node.get("type") == "agent":
+                    role = node.get("role", "")
+                    if role and role not in roles:
+                        roles.append(role)
+            return roles
+
         mode = workflow_def.get("mode", "parallel")
         if mode == "conditional":
             roles: list[str] = []
@@ -81,6 +92,8 @@ class AnalysisService:
                 "round": 0,
                 "selected_agents": [],
                 "status_callback": status_callback,
+                "dynamic_data": {},
+                "loop_counter": 0,
             })
         except Exception as e:
             raise AnalysisError(symbol, str(e)) from e

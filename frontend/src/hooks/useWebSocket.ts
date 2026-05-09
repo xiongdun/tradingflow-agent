@@ -17,12 +17,14 @@ const BASE_RECONNECT_DELAY = 1000; // 1s, doubles each attempt
  */
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);  // WebSocket 实例引用
-  const store = useWorkflowStore();               // 全局状态管理
   const reconnectAttempts = useRef(0);            // 重连尝试次数
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null); // 重连定时器
   const intentionallyClosed = useRef(false);      // 是否主动关闭
   const messageQueue = useRef<WSMessage[]>([]);   // 消息队列（用于 rAF 批处理）
   const flushScheduled = useRef(false);           // 是否已调度 flush
+
+  /** 获取最新 store 状态 — 避免闭包中 store 快照过期 */
+  const getStore = () => useWorkflowStore.getState();
 
   /** 建立 WebSocket 连接，注册消息处理器 */
   const connect = useCallback(() => {
@@ -43,7 +45,7 @@ export function useWebSocket() {
     // 连接成功时重置重连计数
     ws.onopen = () => {
       reconnectAttempts.current = 0;
-      store.addProgress('✅ WebSocket 已连接');
+      getStore().addProgress('✅ WebSocket 已连接');
     };
 
     // 定义带 workflow 信息的状态消息类型
@@ -56,6 +58,7 @@ export function useWebSocket() {
       flushScheduled.current = false;
       const batch = messageQueue.current.splice(0);
       batch.forEach((msg) => {
+        const store = getStore(); // 每条消息读取最新 store，避免批量处理中状态过期
         switch (msg.type) {
           case 'status':
             if (msg.status === 'started') {
@@ -122,6 +125,7 @@ export function useWebSocket() {
     // 连接关闭时 — 主动关闭则不重连，否则指数退避重连
     ws.onclose = () => {
       wsRef.current = null;
+      const store = getStore();
       if (!intentionallyClosed.current && reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
         const delay = BASE_RECONNECT_DELAY * Math.pow(2, reconnectAttempts.current);
         reconnectAttempts.current++;
@@ -143,7 +147,7 @@ export function useWebSocket() {
     ws.onerror = () => { ws.close(); };
 
     return ws;
-  }, [store]);
+  }, []);
 
   /**
    * 发送分析请求 — 重置状态后通过 WebSocket 发送股票代码和工作流配置
@@ -155,6 +159,7 @@ export function useWebSocket() {
    */
   const sendAnalysis = useCallback((symbol: string, market: string, workflow: string, agents?: string[], agentInfos?: { role: string; name: string; skills?: string[]; extra_prompt?: string }[]) => {
     intentionallyClosed.current = false; // 允许重连
+    const store = getStore();
     store.resetAnalysis();   // 清除上次分析结果
     store.setAnalyzing(true); // 标记为分析中
     reconnectAttempts.current = 0; // 重置重连计数
@@ -175,7 +180,7 @@ export function useWebSocket() {
       };
       ws.addEventListener('open', onOpenHandler);
     }
-  }, [store, connect]);
+  }, [connect]);
 
   /** 断开 WebSocket 连接（主动关闭，不触发自动重连） */
   const disconnect = useCallback(() => {

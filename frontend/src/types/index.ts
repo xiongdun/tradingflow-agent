@@ -50,10 +50,45 @@ export interface SkillNodeData {
 
 // ─── 工作流类型 ───
 
+/** 节点类型枚举 — 所有支持的画布节点类型 */
+export type NodeKind = 'analyst' | 'summarizer' | 'input' | 'skill' | 'config' | 'trading' | 'adapter' | 'event_trigger' | 'condition' | 'loop';
+
+/** 适配器节点数据 — 包装外部项目为工作流节点 */
+export interface AdapterNodeData {
+  label: string;
+  adapterType: string;         // 适配器类型（http/script/docker/mcp/langchain/function）
+  adapterName: string;         // 注册名称
+  description: string;
+  config: Record<string, unknown>;
+  outputKey: string;           // 输出到 dynamic_data 的 key
+}
+
+/** 事件触发器节点数据 — 监听事件并触发工作流 */
+export interface EventTriggerNodeData {
+  label: string;
+  eventType: string;           // price_alert / indicator_signal / news_event
+  conditions: Record<string, unknown>;
+  workflowName: string;
+  enabled: boolean;
+}
+
+/** 条件分支节点数据 */
+export interface ConditionNodeData {
+  label: string;
+  field: string;               // opinions / dynamic_data
+  rules: Array<{ label: string; description?: string }>;
+}
+
+/** 循环节点数据 */
+export interface LoopNodeData {
+  label: string;
+  maxIterations: number;
+}
+
 /** 工作流画布节点 — React Flow 节点数据结构 */
 export interface WorkflowNode {
   id: string;                  // 节点唯一标识
-  type: 'analyst' | 'summarizer' | 'input' | 'skill' | 'config';  // 节点类型
+  type: NodeKind;              // 节点类型
   data: {
     role?: string;             // Agent 角色（analyst 节点）
     label: string;             // 显示标签
@@ -65,6 +100,15 @@ export interface WorkflowNode {
     market?: string;           // 市场类型（input 节点）
     period?: string;           // K线周期（config 节点）
     days?: number;             // 历史天数（config 节点）
+    adapterType?: string;      // 适配器类型（adapter 节点）
+    adapterName?: string;      // 注册名称（adapter 节点）
+    outputKey?: string;        // 输出 key（adapter/skill 节点）
+    eventType?: string;        // 事件类型（event_trigger 节点）
+    conditions?: Record<string, unknown>;
+    enabled?: boolean;         // 启用状态（event_trigger 节点）
+    field?: string;            // 条件字段（condition 节点）
+    rules?: Array<{ label: string; description?: string }>;
+    maxIterations?: number;    // 最大迭代次数（loop 节点）
   };
   position: { x: number; y: number };  // 画布坐标
 }
@@ -173,4 +217,37 @@ export interface WSMessage {
   agent_role?: string;          // Agent 角色（agent_status 消息用）
   agent_name?: string;          // Agent 名称
   skill?: string;               // 技能名称（skill_done 消息用）
+}
+
+// ─── 插件系统类型 ───
+
+/** 已安装插件信息 */
+export interface PluginInfo {
+  name: string;                // 插件名称
+  version: string;             // 版本号
+  type: string;                // 插件类型（skill/adapter/datasource/agent/workflow）
+  description: string;         // 描述
+  author: string;              // 作者
+  source: string;              // 来源（local/git/pip/registry/url）
+  enabled: boolean;            // 是否启用
+  permissions: string[];       // 权限列表
+}
+
+/** 远程插件市场条目 */
+export interface PluginListing {
+  name: string;
+  version: string;
+  description: string;
+  author: string;
+  category: string;
+  downloads: number;
+  rating: number;
+}
+
+/** 适配器类型信息 */
+export interface AdapterTypeInfo {
+  type: string;                // 适配器类型标识
+  name: string;                // 显示名称
+  description: string;         // 描述
+  source?: string;             // 来源（plugin 表示来自插件）
 }

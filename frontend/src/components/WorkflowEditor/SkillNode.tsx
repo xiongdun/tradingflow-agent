@@ -3,27 +3,7 @@
 
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-
-/** 技能类别 → 颜色映射 */
-const CATEGORY_COLORS: Record<string, string> = {
-  fundamental: '#34C759',
-  technical: '#007AFF',
-  sentiment: '#FF9500',
-  news: '#AF52DE',
-  macro: '#5AC8FA',
-  data: '#8e8e93',
-  sector: '#FF2D55',
-  flow: '#FF3B30',
-  analysis: '#64D2FF',
-  general: '#8e8e93',
-};
-
-/** 技能节点图标（按类别） */
-const CATEGORY_ICONS: Record<string, string> = {
-  fundamental: '📊', technical: '📈', sentiment: '🔥',
-  news: '📰', macro: '🌐', data: '💾',
-  sector: '🔄', flow: '💧', analysis: '🔬', general: '⚙️',
-};
+import { CATEGORY_COLORS, CATEGORY_ICONS } from '../../constants/theme';
 
 function SkillNodeComponent({ data, selected }: NodeProps) {
   const d = data as any;

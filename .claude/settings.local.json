@@ -139,7 +139,22 @@
       "Bash(popd)",
       "Bash(python -m pytest tests/ -v)",
       "Bash(python -c \"from backend.core.discovery import auto_discover; auto_discover\\(\\); from backend.agents.registry import _agents_registry; print\\('Agents:', list\\(_agents_registry.keys\\(\\)\\)\\)\")",
-      "Bash(python -m pytest tests/test_agents.py -v)"
+      "Bash(python -m pytest tests/test_agents.py -v)",
+      "Bash(python -m pytest tests/test_plugin_system.py tests/test_v2_workflow.py tests/test_adapters.py tests/test_events_security.py -v)",
+      "Bash(python -m pytest tests/test_adapters.py::TestFunctionAdapter::test_config_based_dynamic_import tests/test_adapters.py::TestScriptAdapter::test_missing_script_raises -v --tb=short)",
+      "Bash(python -m pytest tests/test_plugin_system.py -v --tb=short)",
+      "Bash(python -m pytest tests/test_plugin_system.py tests/test_v2_workflow.py tests/test_adapters.py tests/test_events_security.py -v --tb=short)",
+      "Bash(curl -s http://localhost:8000/api/skills)",
+      "Bash(python -c \"from backend.api.routes.adapters import router; print\\('routes:', [r.path for r in router.routes]\\)\")",
+      "Bash(findstr \":8000\")",
+      "Bash(findstr \"LISTENING\")",
+      "Bash(python -m backend.cli serve)",
+      "Bash(curl -s http://localhost:8000/api/adapters)",
+      "Bash(python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000)",
+      "Bash(cd /d D:\\\\code\\\\python\\\\tradingflow-agent\\\\frontend)",
+      "Bash(ls -la)",
+      "Bash(ls D:/code/python/tradingflow-agent/frontend/package.json)",
+      "Bash(dir D:\\\\code\\\\python\\\\tradingflow-agent\\\\frontend)"
     ]
   }
 }

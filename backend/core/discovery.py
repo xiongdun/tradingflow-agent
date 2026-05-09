@@ -35,3 +35,12 @@ def auto_discover() -> None:
     for _, name, _ in pkgutil.iter_modules(agents_pkg.__path__):
         if name not in ("registry", "base", "generic", "__init__", "models"):
             importlib.import_module(f"backend.agents.{name}")
+
+    # Discover and register external plugins (skills + adapters from plugins/ directory)
+    try:
+        from backend.plugins.discovery import discover_plugins, register_plugin_skills, register_plugin_adapters
+        discover_plugins()
+        register_plugin_skills()
+        register_plugin_adapters()
+    except Exception:
+        pass  # 插件系统不可用时静默跳过

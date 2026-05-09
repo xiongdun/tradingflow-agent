@@ -81,6 +81,8 @@ from backend.api.routes.history import router as history_router
 from backend.api.routes.watchlist import router as watchlist_router
 from backend.api.routes.schedules import router as schedules_router
 from backend.api.routes.analysis import router as analysis_router
+from backend.api.routes.plugins import router as plugins_router
+from backend.api.routes.adapters import router as adapters_router
 
 app.include_router(market_router)
 app.include_router(agents_router)
@@ -90,6 +92,8 @@ app.include_router(history_router)
 app.include_router(watchlist_router)
 app.include_router(schedules_router)
 app.include_router(analysis_router)
+app.include_router(plugins_router)
+app.include_router(adapters_router)
 
 
 # ──────────────────────────── 请求/响应模型 ────────────────────────────
