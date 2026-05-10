@@ -66,11 +66,10 @@ export function NodeConfig() {
       return <ConfigPanel data={data} />;
     case 'summarizer':
       return <SummarizerPanel data={data} />;
-<<<<<<< HEAD
     case 'trading':
       return <TraderPanel data={data} nodeId={node.id} />;
-=======
->>>>>>> main
+    case 'trading':
+      return <TraderPanel data={data} nodeId={node.id} />;
     case 'adapter':
       return <AdapterPanel data={data} nodeId={node.id} />;
     case 'event_trigger':
@@ -383,7 +382,6 @@ function SummarizerPanel({ data }: { data: any }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-<<<<<<< HEAD
 //  Trader 面板 — 交易员三阶段：风险评估 → 风险管理 → 交易决策
 // ══════════════════════════════════════════════════════════════════════
 
@@ -618,8 +616,6 @@ const TraderPanel = memo(function TraderPanel({ data, nodeId }: { data: any; nod
 });
 
 // ══════════════════════════════════════════════════════════════════════
-=======
->>>>>>> main
 //  Adapter 面板 — 外部适配器节点配置说明
 // ══════════════════════════════════════════════════════════════════════
 
