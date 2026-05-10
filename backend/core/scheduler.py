@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import sqlite3
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -62,7 +63,8 @@ def _create_sync(
     schedule_type: str, schedule_time: str, interval_minutes: int,
 ) -> int:
     _init_schedule_table()
-    with get_db() as conn:
+    conn = sqlite3.connect(str(_base._DB_PATH), check_same_thread=False)
+    try:
         next_run = _calc_next_run(schedule_type, schedule_time, interval_minutes)
         cursor = conn.execute(
             """INSERT INTO scheduled_tasks
@@ -72,18 +74,25 @@ def _create_sync(
         )
         conn.commit()
         return cursor.lastrowid or 0
+    finally:
+        conn.close()
 
 
 def _list_sync() -> list[dict[str, Any]]:
     _init_schedule_table()
-    with get_db() as conn:
+    conn = sqlite3.connect(str(_base._DB_PATH), check_same_thread=False)
+    try:
+        conn.row_factory = sqlite3.Row
         rows = conn.execute("SELECT * FROM scheduled_tasks ORDER BY created_at DESC").fetchall()
         return [dict(r) for r in rows]
+    finally:
+        conn.close()
 
 
 def _update_sync(task_id: int, **kwargs: Any) -> bool:
     _init_schedule_table()
-    with get_db() as conn:
+    conn = sqlite3.connect(str(_base._DB_PATH), check_same_thread=False)
+    try:
         sets, params = [], []
         for k, v in kwargs.items():
             if k in ("enabled", "schedule_time", "interval_minutes", "workflow"):
@@ -95,14 +104,19 @@ def _update_sync(task_id: int, **kwargs: Any) -> bool:
         cursor = conn.execute(f"UPDATE scheduled_tasks SET {', '.join(sets)} WHERE id = ?", params)
         conn.commit()
         return cursor.rowcount > 0
+    finally:
+        conn.close()
 
 
 def _delete_sync(task_id: int) -> bool:
     _init_schedule_table()
-    with get_db() as conn:
+    conn = sqlite3.connect(str(_base._DB_PATH), check_same_thread=False)
+    try:
         cursor = conn.execute("DELETE FROM scheduled_tasks WHERE id = ?", (task_id,))
         conn.commit()
         return cursor.rowcount > 0
+    finally:
+        conn.close()
 
 
 def _get_due_tasks() -> list[dict[str, Any]]:

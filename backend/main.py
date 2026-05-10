@@ -6,6 +6,14 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+# 修复 loguru + colorama 兼容性问题（Windows）
+try:
+    import colorama.win32 as _cwin32
+    if not hasattr(_cwin32, 'winapi_test'):
+        _cwin32.winapi_test = lambda: True
+except ImportError:
+    pass
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -116,9 +124,82 @@ async def health():
 @app.get("/api/skills")
 @limiter.limit("60/minute")
 async def get_skills(request: Request, market: str = "", category: str = ""):
-    """列出所有可用技能，支持按市场和类别过滤"""
+    """列出所有可用技能（内置 + 自定义），支持按市场和类别过滤"""
     from backend.skills.registry import list_skills
-    return list_skills(market=market or None, category=category or None)
+    from backend.core.custom_store import get_all_custom_skills
+    result = list_skills(market=market or None, category=category or None)
+    # 追加自定义技能
+    for name, cfg in get_all_custom_skills().items():
+        result.append({
+            "name": name,
+            "description": cfg.get("description", ""),
+            "markets": cfg.get("markets", []),
+            "category": cfg.get("category", "general"),
+            "label": cfg.get("label", name),
+            "params": cfg.get("params", {}),
+            "depends_on": cfg.get("depends_on", []),
+            "_custom": True,
+        })
+    return result
+
+
+class SkillCreate(BaseModel):
+    """新建自定义 Skill 模型"""
+    name: str
+    description: str
+    label: str = ""
+    category: str = "general"
+    markets: list[str] = []
+    params: dict[str, str] = {}
+    depends_on: list[str] = []
+
+
+class SkillUpdate(BaseModel):
+    """更新 Skill 信息模型"""
+    description: str | None = None
+    label: str | None = None
+    category: str | None = None
+    markets: list[str] | None = None
+
+
+@app.post("/api/skills")
+@limiter.limit("10/minute")
+async def create_skill(request: Request, req: SkillCreate):
+    """创建自定义技能"""
+    from backend.core.custom_store import save_custom_skill
+    save_custom_skill(req.name, {
+        "name": req.name,
+        "description": req.description,
+        "label": req.label,
+        "category": req.category,
+        "markets": req.markets,
+        "params": req.params,
+        "depends_on": req.depends_on,
+    })
+    return {"status": "ok", "name": req.name}
+
+
+@app.patch("/api/skills/{name}")
+@limiter.limit("10/minute")
+async def update_skill(request: Request, name: str, req: SkillUpdate):
+    """更新自定义技能信息"""
+    from backend.core.custom_store import update_custom_skill
+    updates = {k: v for k, v in req.model_dump().items() if v is not None}
+    if not updates:
+        return {"error": "No fields to update"}
+    if update_custom_skill(name, updates):
+        return {"status": "ok", "name": name}
+    return {"error": f"Skill not found: {name}"}
+
+
+@app.delete("/api/skills/{name}")
+@limiter.limit("10/minute")
+async def delete_skill(request: Request, name: str):
+    """删除自定义技能"""
+    from backend.core.custom_store import delete_custom_skill
+    if delete_custom_skill(name):
+        return {"status": "ok", "name": name}
+    return {"error": f"Skill not found: {name}"}
 
 
 @app.get("/api/config")
@@ -141,6 +222,11 @@ _CONFIG_WHITELIST = {
 }
 
 
+class ConfigBatchUpdate(BaseModel):
+    """批量配置更新请求模型"""
+    updates: dict[str, str]
+
+
 @app.post("/api/config")
 @limiter.limit("10/minute")
 async def update_config(request: Request, req: ConfigUpdate):
@@ -149,6 +235,18 @@ async def update_config(request: Request, req: ConfigUpdate):
         return {"error": f"不允许修改配置项: {req.key}"}
     update_setting(req.key, req.value)
     return {"status": "ok", "key": req.key, "value": req.value}
+
+
+@app.post("/api/config/batch")
+@limiter.limit("10/minute")
+async def update_config_batch(request: Request, req: ConfigBatchUpdate):
+    """批量更新配置项（白名单校验，写入 .env）"""
+    from backend.core.config_writer import update_settings as batch_update
+    filtered = {k: v for k, v in req.updates.items() if k in _CONFIG_WHITELIST}
+    rejected = [k for k in req.updates if k not in _CONFIG_WHITELIST]
+    if filtered:
+        batch_update(filtered)
+    return {"status": "ok", "updated": list(filtered.keys()), "rejected": rejected}
 
 
 @app.get("/api/locale/{lang}")

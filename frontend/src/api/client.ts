@@ -61,6 +61,8 @@ export const runAnalysis = (symbol: string, market: string, workflow: string, ag
 export const getConfig = () => fetchJSON<AppConfig>(`${BASE}/config`);
 /** 更新单个配置项 */
 export const updateConfig = (key: string, value: string) => fetchJSON<{ status: string }>(`${BASE}/config`, { method: 'POST', body: JSON.stringify({ key, value }) });
+/** 批量更新配置项 */
+export const updateConfigBatch = (updates: Record<string, string>) => fetchJSON<{ status: string; updated: string[] }>(`${BASE}/config/batch`, { method: 'POST', body: JSON.stringify({ updates }) });
 
 // ─── 行情数据 API ───
 

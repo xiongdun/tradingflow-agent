@@ -154,7 +154,22 @@
       "Bash(cd /d D:\\\\code\\\\python\\\\tradingflow-agent\\\\frontend)",
       "Bash(ls -la)",
       "Bash(ls D:/code/python/tradingflow-agent/frontend/package.json)",
-      "Bash(dir D:\\\\code\\\\python\\\\tradingflow-agent\\\\frontend)"
+      "Bash(dir D:\\\\code\\\\python\\\\tradingflow-agent\\\\frontend)",
+      "WebFetch(domain:www.zdoc.app)",
+      "Bash(gh pr *)",
+      "Bash(git push *)",
+      "Bash(where gh *)",
+      "Bash(npm list *)",
+      "Read(//c/Users/xiongdun/AppData/Local/Microsoft/WinGet/Packages/**)",
+      "Read(//c/Users/xiongdun/AppData/Roaming/npm/**)",
+      "Bash(C:/Users/xiongdun/AppData/Roaming/npm/gh.cmd --version)",
+      "Bash(curl -s \"https://api.github.com/repos/xiongdun/tradingflow-agent/pulls?state=open&head=xiongdun:feat/macos-frosted-glass-ui\")",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(curl -s --connect-timeout 10 --max-time 30 \"https://api.github.com/repos/xiongdun/tradingflow-agent/pulls?state=open\")",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(f'#{p[\\\\\"number\\\\\"]}: {p[\\\\\"title\\\\\"]} \\({p[\\\\\"head\\\\\"][\\\\\"ref\\\\\"]}\\)'\\) for p in data]\")",
+      "Bash(C:/Users/xiongdun/AppData/Roaming/npm/gh.cmd pr *)",
+      "Bash(python -c \"from backend.agents.trading import TradingAgent; print\\(f'Agent name: {TradingAgent.name}, role: {TradingAgent.role}, skills: {TradingAgent.default_skills}'\\)\")",
+      "Bash(python -c \"from backend.skills.portfolio_risk import evaluate_portfolio_risk; print\\('portfolio_risk skill loaded OK'\\)\")"
     ]
   }
 }

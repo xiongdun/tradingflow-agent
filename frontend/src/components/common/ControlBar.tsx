@@ -78,20 +78,6 @@ export function ControlBar() {
         letterSpacing: -0.3,
       }}>TradingFlow</span>
 
-      {/* 当前股票代码提示（从画布 InputNode 同步） */}
-      {selectedSymbol && (
-        <span style={{
-          background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8,
-          padding: '6px 12px', color: 'var(--accent-green)', fontSize: 13, fontWeight: 600,
-          fontFamily: 'monospace',
-        }}>
-          {selectedSymbol}
-          <span style={{ color: 'var(--text-muted)', fontSize: 11, marginLeft: 6 }}>
-            {selectedMarket === 'a_share' ? 'A股' : selectedMarket === 'us_stock' ? '美股' : '港股'}
-          </span>
-        </span>
-      )}
-
       {/* 分析按钮 — 分析中时禁用 */}
       <button
         onClick={handleAnalyze}
@@ -108,6 +94,20 @@ export function ControlBar() {
       >
         {isAnalyzing ? t("control.analyzing") : t("control.start")}
       </button>
+
+      {/* 当前股票代码提示（从画布 InputNode 同步，显示在分析按钮右侧） */}
+      {selectedSymbol && (
+        <span style={{
+          background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8,
+          padding: '6px 12px', color: 'var(--accent-green)', fontSize: 13, fontWeight: 600,
+          fontFamily: 'monospace',
+        }}>
+          {selectedSymbol}
+          <span style={{ color: 'var(--text-muted)', fontSize: 11, marginLeft: 6 }}>
+            {selectedMarket === 'a_share' ? 'A股' : selectedMarket === 'us_stock' ? '美股' : '港股'}
+          </span>
+        </span>
+      )}
 
       <div style={{ flex: 1 }} />
 
