@@ -170,5 +170,17 @@
   "settings.cancel": "Cancel",
   "settings.confirm_delete": "Confirm Delete",
   "settings.delete_agent_confirm": "Delete Agent",
-  "settings.delete_skill_confirm": "Delete Skill"
+  "settings.delete_skill_confirm": "Delete Skill",
+  "settings.install_from_url": "Install from URL",
+  "settings.install_upload": "Upload Install",
+  "settings.install_url_label": "SKILL.md Download URL",
+  "settings.install_url_placeholder": "https://example.com/SKILL.md",
+  "settings.install_url_hint": "Paste the URL of a SKILL.md file. The system will download and install the skill automatically.",
+  "settings.install": "Install",
+  "settings.installing": "Installing...",
+  "settings.installed": "Installed",
+  "settings.builtin": "Built-in",
+  "settings.custom": "Custom",
+  "settings.uninstall": "Uninstall",
+  "settings.uninstall_confirm": "Confirm uninstall skill"
 }

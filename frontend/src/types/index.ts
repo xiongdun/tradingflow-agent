@@ -21,6 +21,8 @@ export interface SkillInfo {
   label?: string;              // 中文短名称（用于节点显示，如 "财务数据"）
   params?: Record<string, string>;  // 参数说明
   depends_on?: string[];       // 依赖的其他技能
+  _custom?: boolean;           // 是否为自定义技能
+  _source?: string;            // 来源：skill_md = 通过 SKILL.md 安装
 }
 
 // ─── 流程节点数据类型 ───

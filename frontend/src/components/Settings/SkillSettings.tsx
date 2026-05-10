@@ -1,9 +1,9 @@
 // frontend/src/components/Settings/SkillSettings.tsx
-// Skill 配置子面板 — 技能浏览（按类别分组）+ 增删改查
+// Skill 配置子面板 — 技能浏览（按类别分组）+ 增删改查 + SKILL.md 安装/卸载
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { t } from '../../i18n';
-import { getSkills } from '../../api/client';
+import { getSkills, installSkillFromUrl, installSkillUpload, uninstallSkill } from '../../api/client';
 import { CATEGORY_ICONS, CATEGORY_COLORS } from '../../constants/theme';
 import type { SkillInfo } from '../../types';
 
@@ -44,6 +44,11 @@ export function SkillSettings() {
   const [newLabel, setNewLabel] = useState('');
   const [newCategory, setNewCategory] = useState('general');
   const [newMarkets, setNewMarkets] = useState<string[]>(['a_share', 'h_stock', 'us_stock']);
+  // 安装 SKILL.md
+  const [showInstallUrl, setShowInstallUrl] = useState(false);
+  const [installUrl, setInstallUrl] = useState('');
+  const [installing, setInstalling] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,6 +76,19 @@ export function SkillSettings() {
     if (!grouped.has(cat)) grouped.set(cat, []);
     grouped.get(cat)!.push(sk);
   }
+
+  /** 判断技能来源标签 */
+  const getSourceTag = (sk: SkillInfo): { icon: string; text: string; color: string } | null => {
+    if (sk._source === 'skill_md') return { icon: '📥', text: t('settings.installed'), color: 'var(--accent-green)' };
+    if (sk._custom) return { icon: '🏷️', text: t('settings.custom'), color: 'var(--accent-blue)' };
+    return { icon: '🔒', text: t('settings.builtin'), color: 'var(--text-muted)' };
+  };
+
+  /** 判断是否可以卸载 */
+  const canUninstall = (sk: SkillInfo) => sk._source === 'skill_md';
+
+  /** 判断是否可编辑（自定义或 SKILL.md 安装的） */
+  const canEdit = (sk: SkillInfo) => sk._custom || sk._source === 'skill_md';
 
   // ─── 编辑 ───
   const openEdit = (sk: SkillInfo) => {
@@ -101,6 +119,43 @@ export function SkillSettings() {
     } catch { /* silent */ }
   };
 
+  // ─── 从 URL 安装 SKILL.md ───
+  const handleInstallUrl = async () => {
+    if (!installUrl.trim()) return;
+    setInstalling(true);
+    try {
+      const res = await installSkillFromUrl(installUrl);
+      if (res.error) { alert(res.error); return; }
+      setShowInstallUrl(false);
+      setInstallUrl('');
+      load();
+    } catch (e: any) { alert(e.message || '安装失败'); }
+    setInstalling(false);
+  };
+
+  // ─── 上传文件安装 ───
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setInstalling(true);
+    try {
+      const res = await installSkillUpload(file);
+      if (res.error) { alert(res.error); return; }
+      load();
+    } catch (err: any) { alert(err.message || '上传失败'); }
+    setInstalling(false);
+    e.target.value = '';
+  };
+
+  // ─── 卸载 SKILL.md 技能 ───
+  const handleUninstall = async (name: string) => {
+    if (!confirm(t('settings.uninstall_confirm') + `: ${name}?`)) return;
+    try {
+      await uninstallSkill(name);
+      load();
+    } catch { /* silent */ }
+  };
+
   // ─── 新建 ───
   const handleCreate = async () => {
     if (!newName.trim() || !newDesc.trim()) return;
@@ -126,15 +181,33 @@ export function SkillSettings() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {/* 新建按钮 */}
-      <button
-        onClick={() => setShowCreate(true)}
-        style={{
-          alignSelf: 'flex-end', background: 'var(--accent-blue)', color: '#fff',
-          border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12,
-          fontWeight: 600, cursor: 'pointer', marginBottom: 4,
-        }}
-      >+ {t('settings.skill_create')}</button>
+      {/* 操作按钮行 */}
+      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginBottom: 4 }}>
+        <button
+          onClick={() => setShowInstallUrl(true)}
+          style={{
+            background: 'var(--bg-input)', border: '1px solid var(--border)',
+            borderRadius: 6, padding: '6px 12px', fontSize: 12,
+            color: 'var(--text-secondary)', cursor: 'pointer',
+          }}
+        >📥 {t('settings.install_from_url')}</button>
+        <label style={{
+          background: 'var(--bg-input)', border: '1px solid var(--border)',
+          borderRadius: 6, padding: '6px 12px', fontSize: 12,
+          color: 'var(--text-secondary)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
+        }}>
+          📤 {t('settings.install_upload')}
+          <input ref={fileInputRef} type="file" accept=".md" onChange={handleFileUpload} style={{ display: 'none' }} />
+        </label>
+        <button
+          onClick={() => setShowCreate(true)}
+          style={{
+            background: 'var(--accent-blue)', color: '#fff',
+            border: 'none', borderRadius: 6, padding: '6px 14px', fontSize: 12,
+            fontWeight: 600, cursor: 'pointer',
+          }}
+        >+ {t('settings.skill_create')}</button>
+      </div>
 
       {skills.length === 0 && (
         <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>{t('settings.no_skills')}</div>
@@ -180,31 +253,36 @@ export function SkillSettings() {
             {!isCollapsed && (
               <div style={{ padding: '6px 12px 10px' }}>
                 {items.map((sk) => {
-                  const isCustom = sk.name.startsWith('custom_');
+                  const sourceTag = getSourceTag(sk);
                   return (
                     <div key={sk.name} style={{
                       padding: '8px 0',
                       borderBottom: '1px solid var(--border)',
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2, flexWrap: 'wrap' }}>
                         <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)' }}>
                           {sk.label || sk.name}
                         </span>
                         <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}>
                           {sk.name}
                         </span>
-                        {isCustom && (
+                        {/* 来源标签 */}
+                        {sourceTag && (
                           <span style={{
-                            fontSize: 10, color: 'var(--accent-blue)', background: 'rgba(99,102,241,0.1)',
-                            borderRadius: 3, padding: '1px 5px',
-                          }}>自定义</span>
+                            fontSize: 10, color: sourceTag.color,
+                            background: sourceTag.color + '18',
+                            borderRadius: 3, padding: '1px 6px',
+                            display: 'inline-flex', alignItems: 'center', gap: 3,
+                          }}>
+                            {sourceTag.icon} {sourceTag.text}
+                          </span>
                         )}
                       </div>
                       <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}>
                         {sk.description}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', gap: 4 }}>
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                           {(sk.markets || []).map((m) => {
                             const mo = MARKET_OPTIONS.find(o => o.value === m);
                             return (
@@ -219,21 +297,23 @@ export function SkillSettings() {
                         </div>
                         {/* 操作按钮 */}
                         <div style={{ display: 'flex', gap: 4 }}>
-                          <button
-                            onClick={() => openEdit(sk)}
-                            style={{
-                              background: 'none', border: 'none', color: 'var(--accent-blue)',
-                              cursor: 'pointer', fontSize: 11, padding: '2px 4px',
-                            }}
-                          >✎ {t('settings.edit')}</button>
-                          {isCustom && (
+                          {canEdit(sk) && (
                             <button
-                              onClick={() => setDeleteTarget(sk)}
+                              onClick={() => openEdit(sk)}
+                              style={{
+                                background: 'none', border: 'none', color: 'var(--accent-blue)',
+                                cursor: 'pointer', fontSize: 11, padding: '2px 4px',
+                              }}
+                            >✎ {t('settings.edit')}</button>
+                          )}
+                          {canUninstall(sk) && (
+                            <button
+                              onClick={() => handleUninstall(sk.name)}
                               style={{
                                 background: 'none', border: 'none', color: 'var(--accent-red)',
                                 cursor: 'pointer', fontSize: 11, padding: '2px 4px',
                               }}
-                            >🗑 {t('settings.delete')}</button>
+                            >🗑 {t('settings.uninstall')}</button>
                           )}
                         </div>
                       </div>
@@ -311,6 +391,55 @@ export function SkillSettings() {
                 background: 'var(--accent-red)', color: '#fff', border: 'none', borderRadius: 6,
                 padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
               }}>{t('settings.delete')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── 从 URL 安装弹窗 ─── */}
+      {showInstallUrl && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+        }} onClick={() => { setShowInstallUrl(false); setInstallUrl(''); }}>
+          <div style={{
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderRadius: 10, padding: 20, width: 420,
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 16 }}>
+              📥 {t('settings.install_from_url')}
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={modalLabel}>{t('settings.skill_url_label')}</label>
+              <input
+                value={installUrl}
+                onChange={(e) => setInstallUrl(e.target.value)}
+                style={modalInput}
+                placeholder={t('settings.install_url_placeholder')}
+                autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter') handleInstallUrl(); }}
+              />
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 14 }}>
+              {t('settings.install_url_hint')}
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => { setShowInstallUrl(false); setInstallUrl(''); }} style={{
+                background: 'none', border: '1px solid var(--border)', borderRadius: 6,
+                padding: '6px 14px', fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer',
+              }}>{t('settings.cancel')}</button>
+              <button
+                onClick={handleInstallUrl}
+                disabled={installing || !installUrl.trim()}
+                style={{
+                  background: installing ? 'var(--text-muted)' : 'var(--accent-blue)',
+                  color: '#fff', border: 'none', borderRadius: 6,
+                  padding: '6px 14px', fontSize: 12, fontWeight: 600,
+                  cursor: installing ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {installing ? t('settings.installing') : t('settings.install')}
+              </button>
             </div>
           </div>
         </div>

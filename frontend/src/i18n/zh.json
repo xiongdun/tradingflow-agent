@@ -170,5 +170,17 @@
   "settings.cancel": "取消",
   "settings.confirm_delete": "确认删除",
   "settings.delete_agent_confirm": "确定要删除 Agent",
-  "settings.delete_skill_confirm": "确定要删除 Skill"
+  "settings.delete_skill_confirm": "确定要删除 Skill",
+  "settings.install_from_url": "从 URL 安装",
+  "settings.install_upload": "上传安装",
+  "settings.install_url_label": "SKILL.md 下载地址",
+  "settings.install_url_placeholder": "https://example.com/SKILL.md",
+  "settings.install_url_hint": "粘贴 SKILL.md 文件的 URL 地址，系统将自动下载并安装技能。",
+  "settings.install": "安装",
+  "settings.installing": "安装中...",
+  "settings.installed": "已安装",
+  "settings.builtin": "内置",
+  "settings.custom": "自定义",
+  "settings.uninstall": "卸载",
+  "settings.uninstall_confirm": "确认卸载技能"
 }

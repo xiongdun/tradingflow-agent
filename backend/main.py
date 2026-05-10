@@ -202,6 +202,55 @@ async def delete_skill(request: Request, name: str):
     return {"error": f"Skill not found: {name}"}
 
 
+class SkillInstallRequest(BaseModel):
+    """SKILL.md 安装请求模型"""
+    url: str
+
+
+@app.post("/api/skills/install")
+@limiter.limit("10/minute")
+async def install_skill_from_url(request: Request, req: SkillInstallRequest):
+    """从 URL 下载 SKILL.md 并安装"""
+    from backend.core.skill_manager import install_skill_from_url as _install
+    try:
+        result = _install(req.url)
+        return {"status": "ok", "skill": result}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/skills/install/upload")
+@limiter.limit("10/minute")
+async def install_skill_upload(request: Request, file: "UploadFile"):
+    """上传 SKILL.md 文件安装"""
+    from fastapi import UploadFile as _UF
+    from backend.core.skill_manager import install_skill_from_content as _install
+    try:
+        content = (await file.read()).decode("utf-8")
+        result = _install(content, filename=file.filename or "SKILL.md")
+        return {"status": "ok", "skill": result}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/skills/{name}/uninstall")
+@limiter.limit("10/minute")
+async def uninstall_skill_endpoint(request: Request, name: str):
+    """卸载已安装的 SKILL.md 技能"""
+    from backend.core.skill_manager import uninstall_skill
+    if uninstall_skill(name):
+        return {"status": "ok", "name": name}
+    return {"error": f"无法卸载技能: {name}（可能不是通过 SKILL.md 安装的）"}
+
+
+@app.get("/api/skills/installed")
+@limiter.limit("30/minute")
+async def list_installed_skills(request: Request):
+    """列出所有通过 SKILL.md 安装的技能"""
+    from backend.core.skill_manager import list_installed_skill_files
+    return list_installed_skill_files()
+
+
 @app.get("/api/config")
 @limiter.limit("30/minute")
 async def get_config(request: Request):
