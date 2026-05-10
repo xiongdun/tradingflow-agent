@@ -20,6 +20,8 @@ frontend/dist/
 frontend/build/
 .next/
 *.db
+*.db-wal
+*.db-shm
 *.sqlite3
 cache/
 backend/.cache/
