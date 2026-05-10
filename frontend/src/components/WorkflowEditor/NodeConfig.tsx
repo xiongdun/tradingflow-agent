@@ -68,6 +68,8 @@ export function NodeConfig() {
       return <SummarizerPanel data={data} />;
     case 'trading':
       return <TraderPanel data={data} nodeId={node.id} />;
+    case 'trading':
+      return <TraderPanel data={data} nodeId={node.id} />;
     case 'adapter':
       return <AdapterPanel data={data} nodeId={node.id} />;
     case 'event_trigger':
