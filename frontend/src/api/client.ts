@@ -46,6 +46,22 @@ export const resetAgentSkills = (role: string) => fetchJSON<{ status: string; sk
 
 /** 获取所有可用技能，支持按市场和类别过滤 */
 export const getSkills = (market?: string, category?: string) => { const p = new URLSearchParams(); if (market) p.set('market', market); if (category) p.set('category', category); return fetchJSON<SkillInfo[]>(`${BASE}/skills?${p}`); };
+/** 从 URL 安装 SKILL.md 技能 */
+export const installSkillFromUrl = (url: string) =>
+  fetchJSON<{ status: string; skill?: SkillInfo; error?: string }>(`${BASE}/skills/install`, {
+    method: 'POST', body: JSON.stringify({ url }),
+  });
+/** 上传 SKILL.md 文件安装 */
+export const installSkillUpload = async (file: File) => {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${BASE}/skills/install/upload`, { method: 'POST', body: form });
+  if (!res.ok) throw new Error(`Upload error: ${res.status}`);
+  return res.json() as Promise<{ status: string; skill?: SkillInfo; error?: string }>;
+};
+/** 卸载已安装的 SKILL.md 技能 */
+export const uninstallSkill = (name: string) =>
+  fetchJSON<{ status: string; error?: string }>(`${BASE}/skills/${name}/uninstall`, { method: 'POST' });
 /** 获取所有预置工作流模板 */
 export const getWorkflows = () => fetchJSON<WorkflowTemplate[]>(`${BASE}/workflows`);
 
@@ -61,6 +77,8 @@ export const runAnalysis = (symbol: string, market: string, workflow: string, ag
 export const getConfig = () => fetchJSON<AppConfig>(`${BASE}/config`);
 /** 更新单个配置项 */
 export const updateConfig = (key: string, value: string) => fetchJSON<{ status: string }>(`${BASE}/config`, { method: 'POST', body: JSON.stringify({ key, value }) });
+/** 批量更新配置项 */
+export const updateConfigBatch = (updates: Record<string, string>) => fetchJSON<{ status: string; updated: string[] }>(`${BASE}/config/batch`, { method: 'POST', body: JSON.stringify({ updates }) });
 
 // ─── 行情数据 API ───
 

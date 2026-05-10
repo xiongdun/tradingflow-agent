@@ -14,6 +14,7 @@ const TradingViewChart = lazy(() => import('./components/TradingView/Chart').the
 const HistoryPanel = lazy(() => import('./components/History/HistoryPanel').then(m => ({ default: m.HistoryPanel })));
 const WatchlistPanel = lazy(() => import('./components/Watchlist/WatchlistPanel').then(m => ({ default: m.WatchlistPanel })));
 const SchedulePanel = lazy(() => import('./components/Schedule/SchedulePanel').then(m => ({ default: m.SchedulePanel })));
+const SettingsPanel = lazy(() => import('./components/Settings/SettingsPanel').then(m => ({ default: m.SettingsPanel })));
 
 /** 可拖拽调整宽度的面板容器 */
 function ResizablePanel({
@@ -106,8 +107,8 @@ class ErrorBoundary extends Component<
   }
 }
 
-// 标签页类型：workflow（工作流编排）、report（分析结果）、history（历史记录）、watchlist（自选股）、schedule（定时任务）
-type Tab = 'workflow' | 'report' | 'history' | 'watchlist' | 'schedule';
+// 标签页类型：workflow（工作流编排）、report（分析结果）、history（历史记录）、watchlist（自选股）、schedule（定时任务）、settings（系统设置）
+type Tab = 'workflow' | 'report' | 'history' | 'watchlist' | 'schedule' | 'settings';
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('workflow');
@@ -148,6 +149,23 @@ export default function App() {
             {t(tabKey === 'workflow' ? 'tab.workflow' : tabKey === 'report' ? 'tab.report' : tabKey === 'history' ? 'tab.history' : tabKey === 'watchlist' ? 'tab.watchlist' : 'tab.schedule')}
           </button>
         ))}
+        {/* 分隔线 */}
+        <div style={{ width: 1, background: 'var(--border)', margin: '6px 0' }} />
+        {/* 系统设置按钮 */}
+        <button
+          onClick={() => setTab('settings')}
+          style={{
+            padding: '8px 16px', fontSize: 13, fontWeight: tab === 'settings' ? 600 : 400,
+            background: tab === 'settings' ? 'var(--bg-elevated)' : 'transparent',
+            color: tab === 'settings' ? 'var(--text)' : 'var(--text-muted)',
+            border: 'none',
+            borderBottom: tab === 'settings' ? '2px solid var(--accent-blue)' : '2px solid transparent',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+        >
+          ⚙️ {t('tab.settings')}
+        </button>
       </div>
 
       {/* 主内容区域 */}
@@ -199,11 +217,19 @@ export default function App() {
               </Suspense>
             </ErrorBoundary>
           </div>
-        ) : (
+        ) : tab === 'schedule' ? (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <ErrorBoundary label="定时任务">
               <Suspense fallback={<div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>加载中...</div>}>
                 <SchedulePanel />
+              </Suspense>
+            </ErrorBoundary>
+          </div>
+        ) : (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <ErrorBoundary label="系统设置">
+              <Suspense fallback={<div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>加载中...</div>}>
+                <SettingsPanel />
               </Suspense>
             </ErrorBoundary>
           </div>

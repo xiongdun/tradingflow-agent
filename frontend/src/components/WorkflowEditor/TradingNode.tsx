@@ -1,13 +1,20 @@
 // frontend/src/components/WorkflowEditor/TradingNode.tsx
-// 交易执行节点 — React Flow 自定义节点，表示交易信号生成和执行
+// 交易员节点 — React Flow 自定义节点，三阶段投资组合经理：风险评估 → 风险管理 → 交易决策
 
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 
 const TRADE_COLOR = '#FF6B35';
 
-function TradingNodeComponent({ id, data, selected }: NodeProps) {
-  const label = (data as any).label as string || '交易执行';
+/** 三阶段标签 */
+const STAGES = [
+  { label: '风险评估', icon: '🛡️' },
+  { label: '风险管理', icon: '⚖️' },
+  { label: '交易决策', icon: '💹' },
+];
+
+function TradingNodeComponent({ data, selected }: NodeProps) {
+  const label = (data as any).label as string || '交易员';
 
   return (
     <div
@@ -16,7 +23,7 @@ function TradingNodeComponent({ id, data, selected }: NodeProps) {
         border: `1px solid ${selected ? TRADE_COLOR : 'var(--border)'}`,
         borderRadius: 12,
         padding: '12px 16px',
-        minWidth: 180,
+        minWidth: 200,
         backdropFilter: 'var(--blur-light)',
         WebkitBackdropFilter: 'var(--blur-light)',
         boxShadow: selected
@@ -30,14 +37,37 @@ function TradingNodeComponent({ id, data, selected }: NodeProps) {
         style={{ background: TRADE_COLOR, width: 10, height: 10, border: '2px solid var(--bg-card)' }} />
 
       {/* 标题行：交易图标 + 名称 */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
         <span style={{ fontSize: 14, color: TRADE_COLOR }}>💹</span>
-        <span style={{ fontWeight: 600, color: 'var(--text)', fontSize: 14 }}>{label}</span>
+        <span style={{ fontWeight: 700, color: 'var(--text)', fontSize: 13 }}>{label}</span>
       </div>
 
-      {/* 功能说明 */}
-      <div style={{ fontSize: 10, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-        信号生成 · 仓位管理 · 风控设置
+      {/* 三阶段流程指示 */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+        {STAGES.map((stage) => (
+          <div key={stage.label} style={{
+            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+            background: 'rgba(255,107,53,0.06)', borderRadius: 6, padding: '3px 2px',
+            border: '1px solid rgba(255,107,53,0.1)',
+          }}>
+            <span style={{ fontSize: 10 }}>{stage.icon}</span>
+            <span style={{ fontSize: 8, color: 'var(--text-muted)', marginTop: 1, whiteSpace: 'nowrap' }}>
+              {stage.label}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* 流程箭头 */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2,
+        fontSize: 8, color: 'var(--text-muted)', marginTop: 2,
+      }}>
+        <span>评估</span>
+        <span style={{ color: TRADE_COLOR }}>→</span>
+        <span>管理</span>
+        <span style={{ color: TRADE_COLOR }}>→</span>
+        <span>决策</span>
       </div>
 
       {/* 右侧连接手柄（输出端） */}

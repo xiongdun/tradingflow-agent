@@ -66,6 +66,11 @@ export function NodeConfig() {
       return <ConfigPanel data={data} />;
     case 'summarizer':
       return <SummarizerPanel data={data} />;
+<<<<<<< HEAD
+    case 'trading':
+      return <TraderPanel data={data} nodeId={node.id} />;
+=======
+>>>>>>> main
     case 'adapter':
       return <AdapterPanel data={data} nodeId={node.id} />;
     case 'event_trigger':
@@ -378,6 +383,243 @@ function SummarizerPanel({ data }: { data: any }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════
+<<<<<<< HEAD
+//  Trader 面板 — 交易员三阶段：风险评估 → 风险管理 → 交易决策
+// ══════════════════════════════════════════════════════════════════════
+
+/** 风险等级颜色映射 */
+const RISK_LEVEL_COLORS: Record<string, string> = {
+  low: '#34C759',
+  medium: '#FF9500',
+  high: '#FF3B30',
+  extreme: '#FF2D55',
+};
+
+/** 风险等级中文名 */
+const RISK_LEVEL_LABELS: Record<string, string> = {
+  low: '低风险', medium: '中风险', high: '高风险', extreme: '极高风险',
+};
+
+/** 仓位建议中文名 */
+const POSITION_LABELS: Record<string, string> = {
+  full: '满仓', half: '半仓', quarter: '轻仓', empty: '空仓',
+};
+
+const TraderPanel = memo(function TraderPanel({ data, nodeId }: { data: any; nodeId: string }) {
+  const progress = useWorkflowStore((s) => s.agentProgressMap['trading']);
+  const status = progress?.status || 'idle';
+  const messages = progress?.messages || [];
+  const opinion = progress?.opinion;
+
+  // 从 data_evidence 提取风险评估数据
+  const riskAssessment = opinion?.data_evidence?.risk_assessment || null;
+  const tradeSignal = opinion?.data_evidence?.trade_signal || null;
+
+  // 提取风险评估细节
+  const volatility = riskAssessment?.volatility || {};
+  const liquidity = riskAssessment?.liquidity || {};
+  const varData = riskAssessment?.var_95 || null;
+  const maxDD = riskAssessment?.max_drawdown || null;
+  const riskScore = riskAssessment?.risk_score ?? null;
+  const riskLevel = riskAssessment?.risk_level || null;
+  const limitRisk = riskAssessment?.limit_risk || null;
+
+  const color = NODE_TYPE_COLORS.trading;
+
+  return (
+    <div style={panelStyle}>
+      {/* ── 头部 ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+        <span style={{ fontSize: 16, color }}>💹</span>
+        <span style={{ fontWeight: 700, color: 'var(--text)', fontSize: 15, flex: 1 }}>{data.label || '交易员'}</span>
+        <StatusBadge status={status} />
+      </div>
+      <div style={{ color: 'var(--text-muted)', fontSize: 11, marginBottom: 14 }}>
+        投资组合经理 — 风险评估 · 风险管理 · 交易决策
+      </div>
+
+      {/* ── 已配置技能 ── */}
+      {data.skills?.length > 0 && (
+        <div style={cardStyle}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>🔧 已配置技能</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+            {data.skills.map((sk: string) => (
+              <span key={sk} style={{
+                background: `${color}15`, color, borderRadius: 6, padding: '2px 8px',
+                fontSize: 10, fontWeight: 500,
+              }}>{sk}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── 执行进度 ── */}
+      <div style={cardStyle}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>
+          📡 {t('agent_modal.status_' + status) || status}
+        </div>
+
+        {status === 'idle' && (
+          <div style={{ color: 'var(--text-muted)', fontSize: 12, textAlign: 'center', padding: '12px 0' }}>
+            {t('agent_modal.idle')}
+          </div>
+        )}
+
+        {status === 'running' && (
+          <div>
+            {messages.length === 0 ? (
+              <div style={{ color: 'var(--text-muted)', fontSize: 12, padding: '8px 0' }}>
+                {t('agent_modal.waiting')}
+              </div>
+            ) : (
+              <div style={{ maxHeight: 180, overflow: 'auto' }}>
+                {messages.map((msg: string, i: number) => (
+                  <div key={i} style={{
+                    fontSize: 11, color: 'var(--text-secondary)', padding: '4px 0',
+                    borderBottom: '1px solid var(--border)',
+                  }}>
+                    <span style={{ color: 'var(--accent-orange)', marginRight: 4 }}>›</span>{msg}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{
+              height: 2, borderRadius: 1, marginTop: 8,
+              background: `linear-gradient(90deg, transparent, ${color}, transparent)`,
+              animation: 'pulse-bar 1.5s ease-in-out infinite',
+            }} />
+          </div>
+        )}
+
+        {status === 'error' && (
+          <div style={{ color: 'var(--accent-red)', fontSize: 12 }}>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>❌ {t('agent_modal.error')}</div>
+            {messages.length > 0 && (
+              <div style={{
+                background: 'rgba(255,59,48,0.08)', borderRadius: 8, padding: 10, fontSize: 11,
+                border: '1px solid rgba(255,59,48,0.15)',
+              }}>
+                {messages[messages.length - 1]}
+              </div>
+            )}
+          </div>
+        )}
+
+        {status === 'done' && !opinion && (
+          <div style={{ color: 'var(--text-muted)', fontSize: 12, textAlign: 'center', padding: '12px 0' }}>
+            {t('agent_modal.done_no_result')}
+          </div>
+        )}
+      </div>
+
+      {/* ══ 风险评估结果（分析完成后显示） ══ */}
+      {status === 'done' && riskAssessment && (
+        <>
+          {/* 风险评分总览 */}
+          <div style={cardStyle}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>🛡️ 风险评估</div>
+            {riskScore !== null && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: `${RISK_LEVEL_COLORS[riskLevel || 'medium']}15`,
+                  border: `2px solid ${RISK_LEVEL_COLORS[riskLevel || 'medium']}`,
+                  fontSize: 16, fontWeight: 700, color: RISK_LEVEL_COLORS[riskLevel || 'medium'],
+                }}>
+                  {riskScore}
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: RISK_LEVEL_COLORS[riskLevel || 'medium'] }}>
+                    {RISK_LEVEL_LABELS[riskLevel || 'medium']}
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>综合风险评分</div>
+                </div>
+              </div>
+            )}
+
+            {/* 波动率 */}
+            {volatility.annualized !== undefined && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>年化波动率</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: RISK_LEVEL_COLORS[volatility.level || 'medium'] }}>
+                  {(volatility.annualized * 100).toFixed(1)}%
+                  <span style={{ fontSize: 9, marginLeft: 4, color: 'var(--text-muted)' }}>({volatility.level})</span>
+                </span>
+              </div>
+            )}
+
+            {/* 流动性 */}
+            {liquidity.level && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>流动性</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: RISK_LEVEL_COLORS[liquidity.level] }}>
+                  评分 {liquidity.score ?? '—'}
+                  <span style={{ fontSize: 9, marginLeft: 4, color: 'var(--text-muted)' }}>({liquidity.level})</span>
+                </span>
+              </div>
+            )}
+
+            {/* VaR */}
+            {varData && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>VaR (95%)</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: RISK_LEVEL_COLORS[varData.level || 'medium'] }}>
+                  {varData.daily_pct !== undefined ? `${varData.daily_pct}%` : '—'}
+                </span>
+              </div>
+            )}
+
+            {/* 最大回撤 */}
+            {maxDD && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>最大回撤</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: RISK_LEVEL_COLORS[maxDD.level || 'medium'] }}>
+                  {maxDD.pct !== undefined ? `${maxDD.pct}%` : '—'}
+                </span>
+              </div>
+            )}
+
+            {/* 涨跌停风险 */}
+            {limitRisk && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>涨跌停风险</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: RISK_LEVEL_COLORS[limitRisk.level || 'low'] }}>
+                  {limitRisk.consecutive_limit_count > 0 ? `连续${limitRisk.consecutive_limit_count}次` : '正常'}
+                </span>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ══ 交易决策结果（分析完成后显示） ══ */}
+      {status === 'done' && opinion && <OpinionDetail opinion={opinion} color={color} />}
+
+      {/* ── 额外提示词 ── */}
+      <div style={divider} />
+      <label style={{ color: 'var(--text-secondary)', fontSize: 12, display: 'block', marginBottom: 6, fontWeight: 500 }}>
+        额外提示词
+      </label>
+      <textarea
+        value={data.extra_prompt || ''}
+        onChange={(e) => {
+          const updateNodeData = useWorkflowStore.getState().updateNodeData;
+          updateNodeData(nodeId, { extra_prompt: e.target.value });
+        }}
+        placeholder="可选：针对本次分析的额外指令..."
+        style={{
+          width: '100%', minHeight: 72, background: 'var(--bg-input)', border: '1px solid var(--border)',
+          borderRadius: 10, padding: 10, color: 'var(--text)', fontSize: 12, resize: 'vertical',
+        }}
+      />
+    </div>
+  );
+});
+
+// ══════════════════════════════════════════════════════════════════════
+=======
+>>>>>>> main
 //  Adapter 面板 — 外部适配器节点配置说明
 // ══════════════════════════════════════════════════════════════════════
 

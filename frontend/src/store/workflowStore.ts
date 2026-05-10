@@ -208,7 +208,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         id: tradingRole,
         type: 'trading',
         position: { x: 1480, y: 60 + totalHeight / 2 },
-        data: { role: tradingRole, label: agent?.name || '交易执行', skills: agent?.current_skills || [] },
+        data: { role: tradingRole, label: agent?.name || '交易员', skills: agent?.current_skills || [] },
       };
     }
 
