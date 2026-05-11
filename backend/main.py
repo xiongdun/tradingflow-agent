@@ -16,6 +16,7 @@ except ImportError:
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -91,6 +92,7 @@ from backend.api.routes.schedules import router as schedules_router
 from backend.api.routes.analysis import router as analysis_router
 from backend.api.routes.plugins import router as plugins_router
 from backend.api.routes.adapters import router as adapters_router
+from backend.api.routes.skills import router as skills_router
 
 app.include_router(market_router)
 app.include_router(agents_router)
@@ -102,6 +104,7 @@ app.include_router(schedules_router)
 app.include_router(analysis_router)
 app.include_router(plugins_router)
 app.include_router(adapters_router)
+app.include_router(skills_router)
 
 
 # ──────────────────────────── 请求/响应模型 ────────────────────────────
@@ -121,136 +124,6 @@ async def health():
     return {"status": "ok"}
 
 
-@app.get("/api/skills")
-@limiter.limit("60/minute")
-async def get_skills(request: Request, market: str = "", category: str = ""):
-    """列出所有可用技能（内置 + 自定义），支持按市场和类别过滤"""
-    from backend.skills.registry import list_skills
-    from backend.core.custom_store import get_all_custom_skills
-    result = list_skills(market=market or None, category=category or None)
-    # 追加自定义技能
-    for name, cfg in get_all_custom_skills().items():
-        result.append({
-            "name": name,
-            "description": cfg.get("description", ""),
-            "markets": cfg.get("markets", []),
-            "category": cfg.get("category", "general"),
-            "label": cfg.get("label", name),
-            "params": cfg.get("params", {}),
-            "depends_on": cfg.get("depends_on", []),
-            "_custom": True,
-        })
-    return result
-
-
-class SkillCreate(BaseModel):
-    """新建自定义 Skill 模型"""
-    name: str
-    description: str
-    label: str = ""
-    category: str = "general"
-    markets: list[str] = []
-    params: dict[str, str] = {}
-    depends_on: list[str] = []
-
-
-class SkillUpdate(BaseModel):
-    """更新 Skill 信息模型"""
-    description: str | None = None
-    label: str | None = None
-    category: str | None = None
-    markets: list[str] | None = None
-
-
-@app.post("/api/skills")
-@limiter.limit("10/minute")
-async def create_skill(request: Request, req: SkillCreate):
-    """创建自定义技能"""
-    from backend.core.custom_store import save_custom_skill
-    save_custom_skill(req.name, {
-        "name": req.name,
-        "description": req.description,
-        "label": req.label,
-        "category": req.category,
-        "markets": req.markets,
-        "params": req.params,
-        "depends_on": req.depends_on,
-    })
-    return {"status": "ok", "name": req.name}
-
-
-@app.patch("/api/skills/{name}")
-@limiter.limit("10/minute")
-async def update_skill(request: Request, name: str, req: SkillUpdate):
-    """更新自定义技能信息"""
-    from backend.core.custom_store import update_custom_skill
-    updates = {k: v for k, v in req.model_dump().items() if v is not None}
-    if not updates:
-        return {"error": "No fields to update"}
-    if update_custom_skill(name, updates):
-        return {"status": "ok", "name": name}
-    return {"error": f"Skill not found: {name}"}
-
-
-@app.delete("/api/skills/{name}")
-@limiter.limit("10/minute")
-async def delete_skill(request: Request, name: str):
-    """删除自定义技能"""
-    from backend.core.custom_store import delete_custom_skill
-    if delete_custom_skill(name):
-        return {"status": "ok", "name": name}
-    return {"error": f"Skill not found: {name}"}
-
-
-class SkillInstallRequest(BaseModel):
-    """SKILL.md 安装请求模型"""
-    url: str
-
-
-@app.post("/api/skills/install")
-@limiter.limit("10/minute")
-async def install_skill_from_url(request: Request, req: SkillInstallRequest):
-    """从 URL 下载 SKILL.md 并安装"""
-    from backend.core.skill_manager import install_skill_from_url as _install
-    try:
-        result = _install(req.url)
-        return {"status": "ok", "skill": result}
-    except Exception as e:
-        return {"error": str(e)}
-
-
-@app.post("/api/skills/install/upload")
-@limiter.limit("10/minute")
-async def install_skill_upload(request: Request, file: "UploadFile"):
-    """上传 SKILL.md 文件安装"""
-    from fastapi import UploadFile as _UF
-    from backend.core.skill_manager import install_skill_from_content as _install
-    try:
-        content = (await file.read()).decode("utf-8")
-        result = _install(content, filename=file.filename or "SKILL.md")
-        return {"status": "ok", "skill": result}
-    except Exception as e:
-        return {"error": str(e)}
-
-
-@app.post("/api/skills/{name}/uninstall")
-@limiter.limit("10/minute")
-async def uninstall_skill_endpoint(request: Request, name: str):
-    """卸载已安装的 SKILL.md 技能"""
-    from backend.core.skill_manager import uninstall_skill
-    if uninstall_skill(name):
-        return {"status": "ok", "name": name}
-    return {"error": f"无法卸载技能: {name}（可能不是通过 SKILL.md 安装的）"}
-
-
-@app.get("/api/skills/installed")
-@limiter.limit("30/minute")
-async def list_installed_skills(request: Request):
-    """列出所有通过 SKILL.md 安装的技能"""
-    from backend.core.skill_manager import list_installed_skill_files
-    return list_installed_skill_files()
-
-
 @app.get("/api/config")
 @limiter.limit("30/minute")
 async def get_config(request: Request):
@@ -268,6 +141,10 @@ _CONFIG_WHITELIST = {
     "llm_provider", "llm_model", "llm_base_url", "llm_temperature", "llm_max_tokens",
     "default_market", "analysis_timeout", "api_host", "api_port",
     "log_level", "color_scheme", "language", "provider_priority",
+    "skill_timeout", "llm_timeout",
+    "fallback_retry_max", "fallback_retry_wait_min", "fallback_retry_wait_max",
+    "max_agents_per_analysis",
+    "adaptive_large_cap", "adaptive_small_cap", "adaptive_high_turnover",
 }
 
 
@@ -303,6 +180,61 @@ async def get_locale(lang: str):
     """获取指定语言的翻译包"""
     from backend.core.locale import REPORT_LOCALE
     return REPORT_LOCALE.get(lang, REPORT_LOCALE["zh"])
+
+
+# ──────────────────────── 人性化错误提示 ────────────────────────
+
+def _friendly_error_message(exc: Exception) -> tuple[str, str]:
+    """将技术异常转为人话：返回 (用户消息, 可操作提示)"""
+    msg = str(exc)
+    if "api_key" in msg.lower() or "api key" in msg.lower() or "apikey" in msg.lower():
+        return "API 密钥缺失或无效", (
+            "1️⃣  注册 DeepSeek: https://platform.deepseek.com\n"
+            "2️⃣  创建 API Key，复制密钥\n"
+            "3️⃣  在 .env 文件中修改 LLM_API_KEY=你的密钥\n"
+            "4️⃣  重新启动服务"
+        )
+    if "timeout" in msg.lower():
+        return "请求超时，可能是网络问题或数据量过大", "请检查网络连接，或稍后重试"
+    if "connection" in msg.lower() and "refused" in msg.lower():
+        return "无法连接到 AI 模型服务", "请确认 API 地址和网络连通性"
+    if "sqlite" in msg.lower() or "database" in msg.lower():
+        return "数据库出现故障", "尝试删除项目目录下的 data 文件夹，然后重启"
+    if "rate" in msg.lower() and "limit" in msg.lower():
+        return "请求过于频繁，请稍后再试", "系统限制了请求频率以保护服务稳定性"
+    if "model" in msg.lower() and ("not found" in msg.lower() or "not exist" in msg.lower()):
+        return "AI 模型不存在", f"请在 .env 中修改 LLM_MODEL 为可用模型，当前: {msg[:100]}"
+    return f"系统出错了: {msg[:200]}", "如果持续遇到此错误，请截图发送给开发者"
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """全局异常处理 — 技术异常转人话"""
+    logger.error(f"未处理异常 [{request.method} {request.url.path}]: {exc}", exc_info=True)
+    user_msg, hint = _friendly_error_message(exc)
+    return JSONResponse(
+        status_code=500,
+        content={"error": user_msg, "hint": hint},
+    )
+
+
+# ────────────────── 优雅停机：连接池清理 ──────────────────
+
+import atexit
+
+@atexit.register
+def _cleanup_pool():
+    """进程退出时关闭所有数据库连接"""
+    try:
+        import backend.repositories.base as base_mod
+        while not base_mod._pool.empty():
+            try:
+                c = base_mod._pool.get_nowait()
+                c.close()
+            except Exception:
+                break
+    except Exception:
+        pass
 
 
 # ──────────────────────────── 启动/关闭事件 ────────────────────────────

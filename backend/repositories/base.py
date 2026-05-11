@@ -26,7 +26,7 @@ _pool_created = False
 def _create_conn() -> sqlite3.Connection:
     """Create a new SQLite connection with WAL + busy_timeout"""
     _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(_DB_PATH), timeout=10)
+    conn = sqlite3.connect(str(_DB_PATH), timeout=10, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=5000")

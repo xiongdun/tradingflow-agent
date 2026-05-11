@@ -32,7 +32,7 @@ export function Sidebar() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    input: true, config: true, agents: true, skills: false, adapters: true, events: true, summarizer: true, templates: true,
+    input: true, config: true, agents: true, skills: true, adapters: true, events: true, summarizer: true, templates: true,
   });
   const [adapterTypes, setAdapterTypes] = useState<AdapterTypeInfo[]>([]);
 

@@ -1,10 +1,10 @@
 // frontend/src/components/Analysis/ReportView.tsx
-// 分析报告视图 — 展示综合研判结果、共识/分歧/风险/机会、各分析师详细观点
+// 分析报告视图
 
-import { memo, useMemo } from 'react';
 import { useWorkflowStore } from '../../store/workflowStore';
-import type { AgentOpinion } from '../../types';
 import { t } from '../../i18n';
+import AgentRadarChart from './AgentRadarChart';
+import StancePieChart from './StancePieChart';
 
 const getStanceEmoji = (s: string) => t(`report.stance_${s}`) || s;
 const STANCE_BG: Record<string, string> = { bullish: 'rgba(52,199,89,0.08)', bearish: 'rgba(255,59,48,0.08)', neutral: 'rgba(255,149,0,0.08)' };
@@ -38,8 +38,6 @@ export function ReportView() {
   return (
     <div style={{ padding: 24 }}>
       <ExportBar />
-
-      {/* 综合研判摘要卡片 */}
       <div style={{
         background: STANCE_BG[finalReport.overall_stance] || 'var(--bg-input)',
         border: '1px solid var(--border)', borderRadius: 14, padding: 20, marginBottom: 20,
@@ -87,7 +85,7 @@ export function ReportView() {
       {(opinions.length > 0 || finalReport.agent_opinions?.length > 0) && (
         <div style={{ marginTop: 20 }}>
           <h3 style={{ color: 'var(--text)', fontSize: 16, marginBottom: 12, fontWeight: 600 }}>{t("report.agents_title")}</h3>
-          {(opinions.length > 0 ? opinions : finalReport.agent_opinions).map((op: any, i: number) => <OpinionCard key={i} opinion={op} />)}
+          {(opinions.length > 0 ? opinions : finalReport.agent_opinions).map((op: AgentOpinion, i: number) => <OpinionCard key={i} opinion={op} />)}
         </div>
       )}
     </div>
@@ -107,6 +105,8 @@ function Section({ title, items, color }: { title: string; items: string[]; colo
     </div>
   );
 }
+
+type AgentOpinion = import('../../types').AgentOpinion;
 
 function OpinionCard({ opinion }: { opinion: AgentOpinion }) {
   return (
@@ -156,104 +156,4 @@ function ExportBar() {
   );
 }
 
-const AgentRadarChart = memo(function AgentRadarChart({ opinions }: { opinions: any[] }) {
-  if (!opinions || opinions.length < 2) return null;
-  const cx = 130, cy = 130, r = 100;
-  const n = opinions.length;
-  const angleStep = (2 * Math.PI) / n;
-  const getPoint = (i: number, val: number) => {
-    const angle = -Math.PI / 2 + i * angleStep;
-    return { x: cx + val * r * Math.cos(angle), y: cy + val * r * Math.sin(angle) };
-  };
-  const points = opinions.map((op, i) => getPoint(i, op.confidence || 0));
-  const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ') + ' Z';
-
-  return (
-    <div style={{
-      background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 14, minWidth: 280,
-      backdropFilter: 'var(--blur-light)', WebkitBackdropFilter: 'var(--blur-light)',
-    }}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>{t("report.radar")}</div>
-      <svg width={260} height={260} viewBox="0 0 260 260">
-        {[0.25, 0.5, 0.75, 1].map((s) => (
-          <circle key={s} cx={cx} cy={cy} r={r * s} fill="none" stroke="var(--border)" strokeWidth={0.5} />
-        ))}
-        {opinions.map((_, i) => {
-          const p = getPoint(i, 1);
-          return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="var(--border)" strokeWidth={0.5} />;
-        })}
-        <path d={pathD} fill="rgba(0,122,255,0.15)" stroke="var(--accent-blue)" strokeWidth={1.5} />
-        {opinions.map((op, i) => {
-          const p = getPoint(i, op.confidence || 0);
-          const label = getPoint(i, 1.2);
-          return (
-            <g key={i}>
-              <circle cx={p.x} cy={p.y} r={3} fill="var(--accent-blue)" />
-              <text x={label.x} y={label.y} textAnchor="middle" dominantBaseline="middle" fontSize={10} fill="var(--text-muted)">
-                {(op.agent_name || '').slice(0, 4)}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-    </div>
-  );
-}, (prev, next) => JSON.stringify(prev.opinions) === JSON.stringify(next.opinions));
-
-const StancePieChart = memo(function StancePieChart({ opinions }: { opinions: any[] }) {
-  if (!opinions || opinions.length === 0) return null;
-  const counts = { bullish: 0, bearish: 0, neutral: 0 };
-  opinions.forEach((op) => {
-    const s = op.stance || 'neutral';
-    if (s.includes('bullish')) counts.bullish++;
-    else if (s.includes('bearish')) counts.bearish++;
-    else counts.neutral++;
-  });
-  const total = opinions.length;
-  const colors = { bullish: '#34C759', bearish: '#FF3B30', neutral: '#8e8e93' };
-  const labelKeys: Record<string, string> = { bullish: 'report.stance_bullish', bearish: 'report.stance_bearish', neutral: 'report.stance_neutral' };
-  const cx = 90, cy = 90, r = 70;
-  let startAngle = -Math.PI / 2;
-  const segments = (Object.keys(counts) as Array<keyof typeof counts>).filter((k) => counts[k] > 0).map((k) => {
-    const count = counts[k];
-    const angle = (count / total) * 2 * Math.PI;
-    const endAngle = startAngle + angle;
-    const largeArc = angle > Math.PI ? 1 : 0;
-    const x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle);
-    const x2 = cx + r * Math.cos(endAngle), y2 = cy + r * Math.sin(endAngle);
-    const path = `M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc} 1 ${x2},${y2} Z`;
-    const midAngle = startAngle + angle / 2;
-    const labelPos = { x: cx + (r * 0.6) * Math.cos(midAngle), y: cy + (r * 0.6) * Math.sin(midAngle) };
-    startAngle = endAngle;
-    return { key: k, path, color: colors[k], count, labelPos, label: t(labelKeys[k]) || k };
-  });
-
-  return (
-    <div style={{
-      background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: 14, minWidth: 220,
-      backdropFilter: 'var(--blur-light)', WebkitBackdropFilter: 'var(--blur-light)',
-    }}>
-      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>{t("report.pie")}</div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <svg width={180} height={180} viewBox="0 0 180 180">
-          {segments.map((seg) => (
-            <g key={seg.key}>
-              <path d={seg.path} fill={seg.color} opacity={0.85} />
-              <text x={seg.labelPos.x} y={seg.labelPos.y} textAnchor="middle" dominantBaseline="middle" fontSize={11} fill="#fff" fontWeight={600}>
-                {seg.count}
-              </text>
-            </g>
-          ))}
-        </svg>
-        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-          {segments.map((seg) => (
-            <div key={seg.key} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 3, background: seg.color, display: 'inline-block' }} />
-              <span>{seg.label}: {seg.count} ({((seg.count / total) * 100).toFixed(0)}%)</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}, (prev, next) => JSON.stringify(prev.opinions) === JSON.stringify(next.opinions));
+export default ReportView;

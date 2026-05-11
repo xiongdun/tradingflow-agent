@@ -21,9 +21,14 @@ from backend.data.provider import DataProvider, StockInfo, StockQuote
 # 数据源可重试异常类型 — 网络/限流/临时性错误
 _RETRYABLE_ERRORS = (ConnectionError, TimeoutError, OSError)
 
-# 重试策略：最多 3 次，指数退避 1~8 秒
-_RETRY_STOP = stop_after_attempt(3)
-_RETRY_WAIT = wait_exponential(multiplier=1, min=1, max=8)
+
+def _get_retry_config():
+    from backend.core.config import load_settings
+    s = load_settings()
+    return (
+        stop_after_attempt(s.fallback_retry_max),
+        wait_exponential(multiplier=1, min=s.fallback_retry_wait_min, max=s.fallback_retry_wait_max),
+    )
 
 
 class FallbackProvider(DataProvider):
@@ -40,9 +45,10 @@ class FallbackProvider(DataProvider):
             for provider in self._providers:
                 # 通过闭包捕获 provider 和参数，避免默认参数语法限制
                 def _make_call(_p: DataProvider, _args: tuple, _kw: dict) -> Any:
+                    retry_stop, retry_wait = _get_retry_config()
                     @retry(
-                        stop=_RETRY_STOP,
-                        wait=_RETRY_WAIT,
+                        stop=retry_stop,
+                        wait=retry_wait,
                         retry=retry_if_exception_type(_RETRYABLE_ERRORS),
                         before_sleep=before_sleep_log(logger, "WARNING"),
                         reraise=True,

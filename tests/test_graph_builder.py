@@ -8,6 +8,13 @@ from unittest.mock import patch
 import pytest
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _ensure_agents():
+    """确保 Agent 注册表已通过 auto_discover 填充"""
+    from backend.core.discovery import auto_discover
+    auto_discover()
+
+
 class TestValidateWorkflowDef:
     """测试 validate_workflow_def 校验函数"""
 

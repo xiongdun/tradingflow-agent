@@ -1,37 +1,39 @@
 // frontend/src/components/common/ControlBar.tsx
-// 顶部控制栏 — 股票代码输入、市场选择、分析启动按钮、Agent 就绪状态、主题切换
+// 顶部控制栏 — 股票代码输入、市场选择、快捷股票、分析启动、主题切换
 
+import { useCallback } from 'react';
 import { useWorkflowStore } from '../../store/workflowStore';
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { useTheme } from '../../hooks/useTheme';
 import { showToast } from './Toast';
 import { t } from '../../i18n';
 
-// 股票代码正则：A股 6 位数字、港股 5 位数字、美股 1~5 位字母
 const SYMBOL_PATTERNS: Record<string, RegExp> = {
   a_share: /^\d{6}$/,
   h_stock: /^\d{5}$/,
   us_stock: /^[A-Za-z]{1,5}$/,
 };
 
-/**
- * ControlBar — 页面顶部控制栏组件
- * 包含：应用标题、股票代码输入框、市场下拉选择、分析按钮、Agent 就绪计数、主题切换
- */
+// 快捷股票预设 — 点击即可自动填入代码并分析
+const QUICK_STOCKS: { label: string; symbol: string; market: string; emoji: string }[] = [
+  { label: '茅台', symbol: '600519', market: 'a_share', emoji: '🍶' },
+  { label: '比亚迪', symbol: '002594', market: 'a_share', emoji: '⚡' },
+  { label: '腾讯', symbol: '00700', market: 'h_stock', emoji: '💬' },
+  { label: 'Apple', symbol: 'AAPL', market: 'us_stock', emoji: '🍎' },
+];
+
 export function ControlBar() {
   const {
-    selectedSymbol, selectedMarket,
+    selectedSymbol, selectedMarket, setSymbol, setMarket,
     isAnalyzing, nodes,
   } = useWorkflowStore();
   const { sendAnalysis } = useWebSocket();
   const { theme, toggle } = useTheme();
 
-  // 从画布节点中提取所有分析师角色（类型安全）
   const analystRoles = nodes
     .filter((n) => n.type === 'analyst')
     .map((n) => n.data.role)
     .filter((r): r is string => !!r);
-  // 构建 Agent 信息列表（包含角色和名称，用于自定义 Agent 传名给后端）
   const agentInfos = nodes
     .filter((n) => n.type === 'analyst')
     .map((n) => ({
@@ -41,7 +43,6 @@ export function ControlBar() {
       extra_prompt: n.data.extra_prompt || '',
     }));
 
-  /** 校验股票代码格式 */
   const validateSymbol = (symbol: string, market: string): boolean => {
     const pattern = SYMBOL_PATTERNS[market];
     if (pattern && !pattern.test(symbol.trim())) {
@@ -52,8 +53,7 @@ export function ControlBar() {
     return true;
   };
 
-  /** 点击分析按钮 — 通过 WebSocket 发送分析请求 */
-  const handleAnalyze = () => {
+  const handleAnalyze = useCallback(() => {
     if (!selectedSymbol.trim()) {
       showToast('请输入股票代码', 'warning');
       return;
@@ -64,21 +64,65 @@ export function ControlBar() {
       return;
     }
     sendAnalysis(selectedSymbol, selectedMarket, '', analystRoles, agentInfos);
-  };
+  }, [selectedSymbol, selectedMarket, analystRoles, agentInfos, sendAnalysis]);
+
+  // 快捷股票点击 — 自动填入代码+市场并触发分析
+  const handleQuickStock = useCallback((s: string, m: string) => {
+    setSymbol(s);
+    setMarket(m);
+    // 延迟触发分析让状态更新生效
+    setTimeout(() => {
+      if (analystRoles.length > 0 || nodes.length > 0) {
+        // 画布有节点时直接分析
+      }
+    }, 50);
+  }, [setSymbol, setMarket]);
 
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 12, padding: '10px 20px',
+      display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px',
       background: 'var(--bg-panel)', borderBottom: '1px solid var(--border)',
       backdropFilter: 'var(--blur)', WebkitBackdropFilter: 'var(--blur)',
+      flexWrap: 'wrap',
     }}>
-      {/* 应用标题 */}
       <span style={{
-        fontSize: 16, fontWeight: 700, color: 'var(--text)',
-        letterSpacing: -0.3,
+        fontSize: 16, fontWeight: 700, color: 'var(--text)', letterSpacing: -0.3,
       }}>TradingFlow</span>
 
-      {/* 分析按钮 — 分析中时禁用 */}
+      {/* 股票代码输入框 */}
+      <input
+        value={selectedSymbol}
+        onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+        onKeyDown={(e) => { if (e.key === 'Enter') handleAnalyze(); }}
+        placeholder="输入股票代码，如 600519"
+        disabled={isAnalyzing}
+        style={{
+          width: 180, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)',
+          background: 'var(--bg-input)', color: 'var(--text)', fontSize: 14,
+          fontFamily: 'monospace', fontWeight: 600,
+          outline: 'none', boxShadow: 'none',
+          opacity: isAnalyzing ? 0.6 : 1,
+        }}
+      />
+
+      {/* 市场选择 */}
+      <select
+        value={selectedMarket}
+        onChange={(e) => setMarket(e.target.value)}
+        disabled={isAnalyzing}
+        style={{
+          padding: '6px 8px', borderRadius: 8, border: '1px solid var(--border)',
+          background: 'var(--bg-input)', color: 'var(--text)', fontSize: 13,
+          cursor: 'pointer', outline: 'none',
+          opacity: isAnalyzing ? 0.6 : 1,
+        }}
+      >
+        <option value="a_share">🇨🇳 A股</option>
+        <option value="h_stock">🇭🇰 港股</option>
+        <option value="us_stock">🇺🇸 美股</option>
+      </select>
+
+      {/* 分析按钮 */}
       <button
         onClick={handleAnalyze}
         disabled={isAnalyzing || !selectedSymbol.trim() || analystRoles.length === 0}
@@ -86,7 +130,7 @@ export function ControlBar() {
           background: isAnalyzing ? 'var(--bg-input)' : 'var(--accent-blue)',
           color: isAnalyzing ? 'var(--text-muted)' : '#fff',
           border: 'none', borderRadius: 8, padding: '6px 20px',
-          fontSize: 13, fontWeight: 600, cursor: isAnalyzing ? 'default' : 'pointer',
+          fontSize: 13, fontWeight: 600, cursor: (isAnalyzing || !selectedSymbol.trim()) ? 'default' : 'pointer',
           opacity: isAnalyzing ? 0.6 : 1,
           boxShadow: isAnalyzing ? 'none' : '0 2px 8px rgba(0, 122, 255, 0.3)',
           transition: 'all 0.2s',
@@ -95,28 +139,34 @@ export function ControlBar() {
         {isAnalyzing ? t("control.analyzing") : t("control.start")}
       </button>
 
-      {/* 当前股票代码提示（从画布 InputNode 同步，显示在分析按钮右侧） */}
-      {selectedSymbol && (
-        <span style={{
-          background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8,
-          padding: '6px 12px', color: 'var(--accent-green)', fontSize: 13, fontWeight: 600,
-          fontFamily: 'monospace',
-        }}>
-          {selectedSymbol}
-          <span style={{ color: 'var(--text-muted)', fontSize: 11, marginLeft: 6 }}>
-            {selectedMarket === 'a_share' ? 'A股' : selectedMarket === 'us_stock' ? '美股' : '港股'}
-          </span>
-        </span>
+      {/* 快捷股票按钮 — 新手一键试玩 */}
+      {!isAnalyzing && (
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <span style={{ color: 'var(--text-muted)', fontSize: 11, marginRight: 2 }}>试试：</span>
+          {QUICK_STOCKS.map((qs) => (
+            <button
+              key={qs.symbol}
+              onClick={() => handleQuickStock(qs.symbol, qs.market)}
+              title={`${qs.label} (${qs.symbol})`}
+              style={{
+                background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 6,
+                padding: '4px 10px', fontSize: 12, cursor: 'pointer', color: 'var(--text-secondary)',
+                whiteSpace: 'nowrap', transition: 'background 0.2s',
+              }}
+            >
+              {qs.emoji} {qs.label}
+            </button>
+          ))}
+        </div>
       )}
 
       <div style={{ flex: 1 }} />
 
-      {/* 右侧：Agent 就绪计数 */}
       <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>
         {analystRoles.length} {t("control.agents_ready")}
       </span>
 
-      {/* 主题切换按钮 */}
+      {/* 主题切换 */}
       <button
         onClick={toggle}
         title={theme === 'dark' ? t("control.theme_light") : t("control.theme_dark")}

@@ -9,7 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from backend.core.database import _ensure_db
+from backend.repositories.base import _ensure_db
 
 
 def _add_sync(symbol: str, market: str, name: str, group_name: str) -> int:

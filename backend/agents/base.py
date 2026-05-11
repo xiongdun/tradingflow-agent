@@ -17,10 +17,15 @@ from backend.skills.registry import SkillMeta, get_skills_by_names
 from backend.agents.registry import agent, _agents_registry, get_agent_class, list_all_agents  # noqa: F401
 from backend.agents.models import AgentOpinion
 
-# 单个技能执行超时（秒）— 防止网络请求挂死
-SKILL_TIMEOUT = 30
-# LLM 推理超时（秒）— 防止大模型 API 无响应
-LLM_TIMEOUT = 120
+
+def _get_skill_timeout() -> int:
+    from backend.core.config import load_settings
+    return load_settings().skill_timeout
+
+
+def _get_llm_timeout() -> int:
+    from backend.core.config import load_settings
+    return load_settings().llm_timeout
 
 
 class BaseAgent(ABC):
@@ -86,12 +91,12 @@ class BaseAgent(ABC):
             fn = functools.partial(skill_meta.execute, symbol=symbol, market=market, **extra_kwargs)
             data = await asyncio.wait_for(
                 loop.run_in_executor(None, fn),
-                timeout=SKILL_TIMEOUT,
+                timeout=_get_skill_timeout(),
             )
             return skill_meta.name, data
         except asyncio.TimeoutError:
-            logger.warning(f"[{self.name}] 技能 {skill_meta.name} 执行超时 ({SKILL_TIMEOUT}s)")
-            return skill_meta.name, {"error": f"技能执行超时 ({SKILL_TIMEOUT}s)"}
+            logger.warning(f"[{self.name}] 技能 {skill_meta.name} 执行超时 ({_get_skill_timeout()}s)")
+            return skill_meta.name, {"error": f"技能执行超时 ({_get_skill_timeout()}s)"}
         except Exception as e:
             logger.warning(f"[{self.name}] 技能 {skill_meta.name} 执行异常: {e}")
             return skill_meta.name, {"error": str(e)}
@@ -157,17 +162,17 @@ class BaseAgent(ABC):
         try:
             response = await asyncio.wait_for(
                 self.llm.ainvoke([sys_msg, human_msg]),
-                timeout=LLM_TIMEOUT,
+                timeout=_get_llm_timeout(),
             )
         except asyncio.TimeoutError:
-            logger.error(f"[{self.name}] LLM 推理超时 ({LLM_TIMEOUT}s)")
+            logger.error(f"[{self.name}] LLM 推理超时 ({_get_llm_timeout()}s)")
             return AgentOpinion(
                 agent_name=self.name, agent_role=self.role,
                 stock=symbol, market=market,
                 stance="neutral", confidence=0.0,
                 key_points=["LLM 推理超时，无法生成分析结果"],
                 risk_factors=["分析超时"],
-                summary=f"LLM 推理超时 ({LLM_TIMEOUT}s)，请检查 API 连通性或降低数据量。",
+                summary=f"LLM 推理超时 ({_get_llm_timeout()}s)，请检查 API 连通性或降低数据量。",
                 data_evidence=data,
             )
 

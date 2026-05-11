@@ -41,6 +41,8 @@ def build_adaptive_workflow(
         if market == "a_share":
             try:
                 from backend.data.factory import get_provider
+                from backend.core.config import load_settings
+                cfg = load_settings()
                 provider = get_provider(market)
                 info = provider.get_stock_info(symbol)
                 if info:
@@ -48,9 +50,9 @@ def build_adaptive_workflow(
                     turnover = info.get("turnover_rate", 0) or 0
                     industry = info.get("industry", "") or ""
 
-                    if market_cap > 100_000_000_000:
+                    if market_cap > cfg.adaptive_large_cap:
                         selected = ["fundamental", "macro", "quant", "risk"]
-                    elif market_cap < 10_000_000_000 and turnover > 5:
+                    elif market_cap < cfg.adaptive_small_cap and turnover > cfg.adaptive_high_turnover:
                         selected = ["hot_money", "sentiment", "news", "risk"]
                     elif any(kw in industry for kw in ["科技", "电子", "计算机", "半导体", "软件"]):
                         selected = ["technical", "fundamental", "news", "quant"]

@@ -3,7 +3,11 @@
 
 from __future__ import annotations
 
+from loguru import logger
+
 from typing import Any
+
+from backend.core.config import load_settings
 
 # ── 报告文本翻译 ──
 REPORT_LOCALE: dict[str, dict[str, str]] = {

@@ -48,6 +48,21 @@ class Settings(BaseSettings):
     # ── 数据源配置 ──
     provider_priority: str = ""             # 数据源优先级 JSON（由 API 自动维护）
 
+    # ── 超时与重试配置 ──
+    skill_timeout: int = 30                 # 单个技能执行超时（秒）
+    llm_timeout: int = 120                  # LLM 推理超时（秒）
+    fallback_retry_max: int = 3             # 数据源容错最大重试次数
+    fallback_retry_wait_min: float = 1.0    # 重试指数退避最小等待（秒）
+    fallback_retry_wait_max: float = 8.0    # 重试指数退避最大等待（秒）
+
+    # ── 分析预算控制 ──
+    max_agents_per_analysis: int = 10       # 单次分析最大 Agent 数量
+
+    # ── 自适应选股阈值 ──
+    adaptive_large_cap: float = 100_000_000_000    # 大市值阈值（默认1000亿）
+    adaptive_small_cap: float = 10_000_000_000     # 小市值阈值（默认100亿）
+    adaptive_high_turnover: float = 5.0            # 高换手率阈值（%）
+
     model_config = {
         "env_file": str(ENV_FILE),
         "env_file_encoding": "utf-8",

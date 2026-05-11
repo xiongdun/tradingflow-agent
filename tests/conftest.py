@@ -33,9 +33,19 @@ def tmp_cache_dir(tmp_path: Path):
 
 @pytest.fixture
 def patch_db_path(tmp_path: Path):
-    """将数据库 _DB_PATH 指向临时目录（watchlist 共享同一 DB）"""
+    """将数据库 _DB_PATH 指向临时目录，同时重置连接池防止跨测试连接污染"""
     db_path = tmp_path / "history.db"
-    with patch("backend.repositories.base._DB_PATH", db_path):
+    import backend.repositories.base as base_mod
+    with patch.object(base_mod, "_DB_PATH", db_path):
+        base_mod._pool_created = False
+        while not base_mod._pool.empty():
+            try:
+                c = base_mod._pool.get_nowait()
+                c.close()
+            except Exception:
+                break
+        base_mod._initialized_path = None
+
         from backend.repositories.base import _ensure_db
         conn = _ensure_db()
         conn.close()

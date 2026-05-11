@@ -8,7 +8,7 @@ import json
 from datetime import datetime
 from typing import Any
 
-from backend.repositories.base import _ensure_db
+from loguru import logger
 
 
 # ──────────────────────────── 同步 CRUD ────────────────────────────
@@ -23,9 +23,8 @@ def _save_sync(
     report: dict | None,
     markdown: str,
 ) -> int:
-    """同步保存分析记录（在线程池中调用）"""
-    conn = _ensure_db()
-    try:
+    from backend.repositories.base import get_db
+    with get_db() as conn:
         cursor = conn.execute(
             """INSERT INTO analysis_history
                (symbol, market, workflow, agents, opinions, report, markdown, created_at)
@@ -43,8 +42,6 @@ def _save_sync(
         )
         conn.commit()
         return cursor.lastrowid or 0
-    finally:
-        conn.close()
 
 
 def _list_sync(
@@ -53,9 +50,8 @@ def _list_sync(
     limit: int = 20,
     offset: int = 0,
 ) -> list[dict[str, Any]]:
-    """同步查询历史记录列表"""
-    conn = _ensure_db()
-    try:
+    from backend.repositories.base import get_db
+    with get_db() as conn:
         query = "SELECT * FROM analysis_history WHERE 1=1"
         params: list[Any] = []
         if symbol:
@@ -80,14 +76,11 @@ def _list_sync(
             }
             for r in rows
         ]
-    finally:
-        conn.close()
 
 
 def _get_sync(history_id: int) -> dict[str, Any] | None:
-    """同步获取单条历史记录详情"""
-    conn = _ensure_db()
-    try:
+    from backend.repositories.base import get_db
+    with get_db() as conn:
         row = conn.execute(
             "SELECT * FROM analysis_history WHERE id = ?", (history_id,)
         ).fetchone()
@@ -104,27 +97,21 @@ def _get_sync(history_id: int) -> dict[str, Any] | None:
             "markdown": row["markdown"],
             "created_at": row["created_at"],
         }
-    finally:
-        conn.close()
 
 
 def _delete_sync(history_id: int) -> bool:
-    """同步删除历史记录"""
-    conn = _ensure_db()
-    try:
+    from backend.repositories.base import get_db
+    with get_db() as conn:
         cursor = conn.execute(
             "DELETE FROM analysis_history WHERE id = ?", (history_id,)
         )
         conn.commit()
         return cursor.rowcount > 0
-    finally:
-        conn.close()
 
 
 def _backtest_sync(symbol: str, days: int = 30) -> dict[str, Any]:
-    """同步回测：对比历史预测与实际走势"""
-    conn = _ensure_db()
-    try:
+    from backend.repositories.base import get_db
+    with get_db() as conn:
         rows = conn.execute(
             """SELECT * FROM analysis_history
                WHERE symbol = ?
@@ -149,7 +136,6 @@ def _backtest_sync(symbol: str, days: int = 30) -> dict[str, Any]:
                     "confidence": op.get("confidence", 0),
                 })
 
-        # 统计各 Agent 的 stance 分布
         agent_stats: dict[str, dict] = {}
         for pred in predictions:
             role = pred["agent_role"]
@@ -166,8 +152,6 @@ def _backtest_sync(symbol: str, days: int = 30) -> dict[str, Any]:
             "total_predictions": len(predictions),
             "agent_stats": agent_stats,
         }
-    finally:
-        conn.close()
 
 
 # ──────────────────────────── 异步公共接口 ────────────────────────────
@@ -182,7 +166,6 @@ async def save_analysis(
     report: dict | None,
     markdown: str,
 ) -> int:
-    """异步保存分析记录"""
     return await asyncio.to_thread(
         _save_sync, symbol, market, workflow, agents, opinions, report, markdown
     )
@@ -194,20 +177,16 @@ async def list_history(
     limit: int = 20,
     offset: int = 0,
 ) -> list[dict[str, Any]]:
-    """异步查询历史记录列表"""
     return await asyncio.to_thread(_list_sync, symbol, market, limit, offset)
 
 
 async def get_history(history_id: int) -> dict[str, Any] | None:
-    """异步获取单条历史记录"""
     return await asyncio.to_thread(_get_sync, history_id)
 
 
 async def delete_history(history_id: int) -> bool:
-    """异步删除历史记录"""
     return await asyncio.to_thread(_delete_sync, history_id)
 
 
 async def backtest(symbol: str, days: int = 30) -> dict[str, Any]:
-    """异步回测分析"""
     return await asyncio.to_thread(_backtest_sync, symbol, days)

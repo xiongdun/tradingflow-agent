@@ -22,6 +22,11 @@ def validate_workflow_def(workflow_def: dict[str, Any]) -> list[str]:
     """
     version = workflow_def.get("version", 1)
 
+    valid_versions = {1, 2}
+    if version not in valid_versions:
+        errors: list[str] = [f"不支持的 workflow 版本号 (version): {version}，可选: {sorted(valid_versions)}"]
+        return errors
+
     # v2 格式使用独立的校验器
     if version == 2:
         from backend.plugins.workflow_engine import validate_v2_workflow

@@ -110,20 +110,122 @@ class ErrorBoundary extends Component<
 // 标签页类型：workflow（工作流编排）、report（分析结果）、history（历史记录）、watchlist（自选股）、schedule（定时任务）、settings（系统设置）
 type Tab = 'workflow' | 'report' | 'history' | 'watchlist' | 'schedule' | 'settings';
 
+const ONBOARDING_KEY = 'tradingflow_onboarding_done_v1';
+
+function OnboardingModal({ onDismiss }: { onDismiss: (dontShowAgain: boolean) => void }) {
+  return (
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget) onDismiss(false); }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 10000,
+        background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+        WebkitBackdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <div style={{
+        background: 'var(--bg-panel)', borderRadius: 16, padding: '28px 32px',
+        maxWidth: 520, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+        border: '1px solid var(--border)',
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <div style={{ fontSize: 40, marginBottom: 8 }}>🤖</div>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text)' }}>
+            欢迎使用 TradingFlow Agent
+          </h2>
+          <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>
+            AI 多智能体股票分析系统 — 快速上手只需 3 步
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {[
+            { emoji: '1️⃣', title: '输入股票代码', desc: '在上方搜索框输入代码（如 600519），或点击快捷按钮' },
+            { emoji: '2️⃣', title: '点击分析', desc: '选择市场（A股/港股/美股），点击「开始分析」' },
+            { emoji: '3️⃣', title: '查看结果', desc: 'AI 自动生成多维度分析报告 + K线图表' },
+          ].map((step) => (
+            <div
+              key={step.title}
+              style={{
+                display: 'flex', alignItems: 'flex-start', gap: 10,
+                padding: '6px 0',
+              }}
+            >
+              <span style={{ fontSize: 20, flexShrink: 0 }}>{step.emoji}</span>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{step.title}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>{step.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{
+          marginTop: 20, padding: '12px 14px',
+          background: 'var(--bg-input)', borderRadius: 10,
+          fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6,
+        }}>
+          💡 <strong>提示：</strong>可在下方「工作流编排」中自由拖拽组合 Agent，也可在「预置模板」中一键加载高频策略。
+        </div>
+
+        <div style={{
+          display: 'flex', gap: 10, marginTop: 20,
+          justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <label style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer',
+          }}>
+            <input
+              type="checkbox"
+              onChange={(e) => {
+                if (e.target.checked) {
+                  localStorage.setItem(ONBOARDING_KEY, '1');
+                }
+              }}
+              style={{ accentColor: 'var(--accent-blue)' }}
+            />
+            不再显示
+          </label>
+          <button
+            onClick={() => onDismiss(false)}
+            style={{
+              background: 'var(--accent-blue)', color: '#fff', border: 'none',
+              borderRadius: 10, padding: '10px 32px', fontSize: 14, fontWeight: 600,
+              cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,122,255,0.3)',
+            }}
+          >
+            开始使用
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [tab, setTab] = useState<Tab>('workflow');
-  // 加载语言配置
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    return !localStorage.getItem(ONBOARDING_KEY);
+  });
   useEffect(() => { loadLocale(); }, []);
-  // 分析完成后自动切换到结果标签页
   useEffect(() => {
     const handler = () => setTab('report');
     window.addEventListener('switch-to-report', handler);
     return () => window.removeEventListener('switch-to-report', handler);
   }, []);
 
+  const dismissOnboarding = (dontShowAgain: boolean) => {
+    setShowOnboarding(false);
+    if (dontShowAgain || true) {
+      localStorage.setItem(ONBOARDING_KEY, '1');
+    }
+  };
+
   return (
     <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)', color: 'var(--text)' }}>
       <ToastContainer />
+      {showOnboarding && <OnboardingModal onDismiss={dismissOnboarding} />}
       {/* 顶部控制栏：股票代码输入、市场选择、分析按钮 */}
       <ControlBar />
 

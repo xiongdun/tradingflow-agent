@@ -17,8 +17,6 @@ StatusCallback = Callable[[str, str, str, dict[str, Any]], Awaitable[None]] | No
 
 # 工作流模板名称白名单正则 — 仅允许字母、数字、下划线、连字符
 _SAFE_NAME_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
-# 单次分析最大 Agent 数量（防止 LLM 费用失控）
-MAX_AGENTS_PER_ANALYSIS = 10
 
 
 class AnalysisService:
@@ -72,8 +70,10 @@ class AnalysisService:
         # 预算控制：限制 Agent 数量
         agents_raw = workflow_def.get("agents", [])
         agent_count = len(workflow_def.get("stages", [0])) if workflow_def.get("mode") == "conditional" else len(agents_raw)
-        if agent_count > MAX_AGENTS_PER_ANALYSIS:
-            raise AnalysisError(symbol, f"分析 Agent 数量超限: {agent_count} > {MAX_AGENTS_PER_ANALYSIS}")
+        from backend.core.config import load_settings
+        max_agents = load_settings().max_agents_per_analysis
+        if agent_count > max_agents:
+            raise AnalysisError(symbol, f"分析 Agent 数量超限: {agent_count} > {max_agents}")
 
         try:
             graph = build_from_json(workflow_def)
