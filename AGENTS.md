@@ -132,6 +132,14 @@ cd frontend && npm install && npm run dev
 ### Testing
 289 tests across 25+ files: `pytest tests/ -v`
 
+### Error Handling & Stability
+- Data layer: FallbackProvider safe empty value fallback on all-provider failure
+- Agent layer: Dual timeout + None→{} conversion + confidence parse safety
+- Graph layer: multi_round max round cap + conditional gate type guards
+- Storage: auto-rollback on exception with connection pool return
+- API: correct HTTP status codes (404/500) + WebSocket error logging
+- Frontend: null safety guards on all node data accesses
+
 ## Behavioral Guidelines
 
 ### Simplicity First

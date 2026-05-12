@@ -278,19 +278,19 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       name,
       description: '',
       agents: agentNodes.map((n) => {
-        const d = n.data as any;
-        const entry: Record<string, unknown> = { role: d.role };
+        const d = (n.data as any) || {};
+        const entry: Record<string, unknown> = { role: d.role || '' };
         if (d.skills?.length) entry.skills = d.skills;
         if (d.extra_prompt) entry.extra_prompt = d.extra_prompt;
         if (d.label && d.label !== d.role) entry.name = d.label;
         return entry;
       }),
       skills: skillNodes.map((n) => {
-        const d = n.data as any;
-        return { name: d.skillName, category: d.category, params: d.params || {} };
+        const d = (n.data as any) || {};
+        return { name: d.skillName || '', category: d.category, params: d.params || {} };
       }),
-      input: inputNode ? { symbol: (inputNode.data as any).symbol, market: (inputNode.data as any).market } : undefined,
-      config: configNode ? { period: (configNode.data as any).period, days: (configNode.data as any).days } : undefined,
+      input: inputNode ? { symbol: ((inputNode.data as any) || {}).symbol, market: ((inputNode.data as any) || {}).market } : undefined,
+      config: configNode ? { period: ((configNode.data as any) || {}).period, days: ((configNode.data as any) || {}).days } : undefined,
       summarizer_prompt: '',
     };
   },
@@ -303,7 +303,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, definition }),
     });
-    if (!resp.ok) throw new Error('保存失败');
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '保存失败');
+      throw new Error(errText || '保存失败');
+    }
   },
 
   /** 导出当前画布为 JSON 文件 — 触发浏览器下载 */

@@ -8,6 +8,7 @@ from datetime import datetime, date
 from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 router = APIRouter(tags=["analysis"])
@@ -52,13 +53,21 @@ async def run_analysis(req: AnalyzeRequest):
     else:
         workflow_def = AnalysisService.load_workflow(req.workflow)
         if not workflow_def:
-            return {"error": f"Workflow template not found: {req.workflow}"}
+            return JSONResponse(
+                status_code=404,
+                content={"error": f"Workflow template not found: {req.workflow}"},
+            )
 
     try:
         result = await AnalysisService.run_and_save(req.symbol, req.market, workflow_def)
         return {"status": "completed", "report": result["report"], "markdown": result["markdown"]}
     except Exception as e:
-        return {"status": "error", "error": str(e)}
+        from loguru import logger
+        logger.error(f"Analysis failed for {req.symbol}: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "error": str(e)},
+        )
 
 
 # ──────────────────────────── WebSocket 实时分析 ────────────────────────────
@@ -164,6 +173,8 @@ async def ws_analyze(ws: WebSocket):
                 await _send_ws(ws, {"type": "status", "status": "completed"})
 
             except Exception as e:
+                from loguru import logger
+                logger.error(f"WS analysis failed for {symbol}: {e}")
                 await _send_ws(ws, {"type": "error", "message": str(e)})
             finally:
                 _analysis_running = False

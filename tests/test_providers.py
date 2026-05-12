@@ -65,3 +65,66 @@ class TestProviderFactory:
         from backend.data.factory import set_provider_priority
         ok = set_provider_priority("invalid_market", ["akshare"])
         assert ok is False
+
+
+# ═══════════════════════════════════════════════════════
+#  FallbackProvider 安全空值 + None 处理测试
+# ═══════════════════════════════════════════════════════
+
+class TestFallbackSafety:
+    """测试 FallbackProvider _safe_empty_result 和安全降级逻辑"""
+
+    def test_safe_empty_result_all_methods(self):
+        """验证 _safe_empty_result 为每个 data 方法返回正确类型的空值"""
+        import pytest
+        from backend.data.fallback_provider import _safe_empty_result
+
+        test_cases = [
+            ("search_stock", list, []),
+            ("get_stock_info", dict, {"error": "数据暂不可用"}),
+            ("get_realtime_quote", dict, {"error": "数据暂不可用"}),
+            ("get_kline", dict, {}),
+            ("get_financial_data", dict, {}),
+            ("unknown_method", dict, {}),
+        ]
+
+        for method, expected_type, expected_min in test_cases:
+            result = _safe_empty_result(method)
+            assert isinstance(result, expected_type), f"{method}: expected {expected_type}, got {type(result)}"
+            if isinstance(expected_min, dict):
+                for k, v in expected_min.items():
+                    assert k in result, f"{method}: missing key {k}"
+                    assert result[k] == v, f"{method}: {k}={result[k]} != {v}"
+
+    def test_all_providers_fail_returns_safe_empty(self):
+        """所有数据源都失败时，FallbackProvider 应返回安全空值而非抛异常"""
+        from unittest.mock import MagicMock, patch
+        from backend.data.fallback_provider import FallbackProvider
+
+        bad_provider = MagicMock()
+        bad_provider.__class__.__name__ = "BadProvider"
+        bad_provider.get_kline.side_effect = ConnectionError("网络不可达")
+
+        with patch("backend.data.fallback_provider._get_retry_config", return_value=(None, None)):
+            fb = FallbackProvider([bad_provider])
+            result = fb.get_kline("600519")
+            assert isinstance(result, dict)
+            assert result == {}
+
+    def test_provider_returns_none_falls_through(self):
+        """Provider 返回 None 时应尝试下一个，而非直接返回 None"""
+        from unittest.mock import MagicMock, patch
+        from backend.data.fallback_provider import FallbackProvider
+
+        none_provider = MagicMock()
+        none_provider.__class__.__name__ = "NoneProvider"
+        none_provider.search_stock.return_value = None
+
+        good_provider = MagicMock()
+        good_provider.__class__.__name__ = "GoodProvider"
+        good_provider.search_stock.return_value = [{"code": "600519", "name": "茅台"}]
+
+        with patch("backend.data.fallback_provider._get_retry_config", return_value=(None, None)):
+            fb = FallbackProvider([none_provider, good_provider])
+            result = fb.search_stock("茅台")
+            assert result == [{"code": "600519", "name": "茅台"}]

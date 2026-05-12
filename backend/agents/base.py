@@ -118,7 +118,7 @@ class BaseAgent(ABC):
                 logger.warning(f"[{self.name}] 检测到循环或缺失依赖，降级为串行执行")
                 for s in remaining:
                     name, data = await self._execute_one_skill(s, symbol, market, results)
-                    results[name] = data
+                    results[name] = data if data is not None else {}
                     executed.add(name)
                     if status_callback:
                         try:
@@ -130,7 +130,7 @@ class BaseAgent(ABC):
             tasks = [self._execute_one_skill(s, symbol, market, results) for s in ready]
             batch_results = await asyncio.gather(*tasks)
             for name, data in batch_results:
-                results[name] = data
+                results[name] = data if data is not None else {}
                 executed.add(name)
                 if status_callback:
                     try:
@@ -247,13 +247,18 @@ def _parse_opinion(content: str, agent_name: str, agent_role: str,
         "summary": content[:500],
     }
     parsed = parse_structured_output(content, defaults)
+    try:
+        raw = parsed.get("confidence", 0.5)
+        confidence_val = float(raw) if raw is not None else 0.5
+    except (ValueError, TypeError):
+        confidence_val = 0.5
     return AgentOpinion(
         agent_name=agent_name,
         agent_role=agent_role,
         stock=symbol,
         market=market,
         stance=parsed["stance"],
-        confidence=float(parsed["confidence"]),
+        confidence=confidence_val,
         key_points=parsed["key_points"],
         risk_factors=parsed["risk_factors"],
         summary=parsed["summary"],

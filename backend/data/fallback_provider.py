@@ -31,6 +31,19 @@ def _get_retry_config():
     )
 
 
+def _safe_empty_result(method: str) -> Any:
+    """所有数据源都失败时，返回安全的空值，避免下游代码崩溃"""
+    if method == "search_stock":
+        return []
+    if method == "get_stock_info":
+        return {"error": "数据暂不可用", "market_cap": 0, "turnover_rate": 0, "industry": ""}
+    if method == "get_realtime_quote":
+        return {"error": "数据暂不可用"}
+    if method in ("get_kline", "get_financial_data"):
+        return {}
+    return {}
+
+
 class FallbackProvider(DataProvider):
     """容错数据提供者 — 包装多个 DataProvider，按顺序尝试，自动切换"""
 
@@ -38,12 +51,14 @@ class FallbackProvider(DataProvider):
         self._providers = providers
 
     def _try_all(self, method: str, *args, **kwargs) -> Any:
-        """按优先级依次调用各 Provider 的指定方法，第一个成功即返回（带缓存+重试）"""
+        """按优先级依次调用各 Provider 的指定方法，第一个成功即返回（带缓存+重试）
+        
+        与普通容错不同：此方法在所有数据源都失败时，返回安全的空结果
+        而非抛出异常，确保分析流程不会因数据问题完全中断。
+        """
         def _do_try_with_retry(*a: Any, **kw: Any) -> Any:
-            """对每个 provider 做重试，失败后 fallback 到下一个"""
             last_error = None
             for provider in self._providers:
-                # 通过闭包捕获 provider 和参数，避免默认参数语法限制
                 def _make_call(_p: DataProvider, _args: tuple, _kw: dict) -> Any:
                     retry_stop, retry_wait = _get_retry_config()
                     @retry(
@@ -58,13 +73,17 @@ class FallbackProvider(DataProvider):
                     return _call
 
                 try:
-                    return _make_call(provider, a, kw)()
+                    result = _make_call(provider, a, kw)()
+                    if result is not None:
+                        return result
+                    logger.debug(f"[fallback] {provider.__class__.__name__}.{method} returned None, trying next")
+                    last_error = ValueError(f"{provider.__class__.__name__}.{method} returned None")
                 except Exception as e:
                     logger.warning(f"[fallback] {provider.__class__.__name__}.{method} failed after retries: {e}")
                     last_error = e
-            if last_error is None:
-                raise ValueError(f"No providers available for {method}")
-            raise last_error
+            # 所有数据源都失败 — 返回安全空值而非抛异常
+            logger.error(f"[fallback] All providers failed for {method}: {last_error}")
+            return _safe_empty_result(method)
 
         return cached_call(method, _do_try_with_retry, *args, **kwargs)
 

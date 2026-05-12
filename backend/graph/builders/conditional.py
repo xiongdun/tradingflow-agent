@@ -42,8 +42,8 @@ def build_conditional_workflow(
                 return next_roles
             if condition == "check_risk":
                 opinions = state.get("opinions", [])
-                for op in opinions:
-                    if op.get("agent_role") == "risk":
+                for op in (opinions or []):
+                    if isinstance(op, dict) and op.get("agent_role") == "risk":
                         stance = op.get("stance", "")
                         if stance in ("bearish", "strong_bearish"):
                             return "skip"

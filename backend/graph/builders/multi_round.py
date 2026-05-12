@@ -64,8 +64,9 @@ def build_multi_round_workflow(
         builder.add_edge(role, "cross_review")
 
     def round_router(state: dict) -> str:
-        current = state.get("round", 1)
-        if current < rounds:
+        current = max(state.get("round", 1), 1)
+        max_rounds = min(rounds, 10)
+        if current < max_rounds:
             return "fan_out"
         return "summarizer"
 

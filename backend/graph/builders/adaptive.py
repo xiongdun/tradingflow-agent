@@ -59,6 +59,8 @@ def build_adaptive_workflow(
                     else:
                         selected = ["fundamental", "technical", "sentiment", "risk"]
             except Exception:
+                from loguru import logger
+                logger.warning(f"[adaptive] Failed to get stock info for {symbol}, using default agent set")
                 selected = ["fundamental", "technical", "sentiment", "risk"]
 
         return {"selected_agents": selected}

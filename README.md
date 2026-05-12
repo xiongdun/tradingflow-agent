@@ -659,6 +659,47 @@ docker-compose up --build -d
 
 ---
 
+## 🛡️ 稳定性保障
+
+### 异常处理体系
+
+| 层级 | 策略 | 说明 |
+|------|------|------|
+| **数据层** | 安全降级 | FallbackProvider 在所有数据源失败时返回空值而非崩溃，确保分析流程不中断 |
+| **Agent 层** | 双层超时 | 技能执行 (30s) + LLM 推理 (120s) 分别配置独立超时，超时后生成占位意见 |
+| **工作流层** | 硬上限兜底 | multi_round 循环上限 min(rounds, 10)，防止配置错误导致无限循环 |
+| **存储层** | 连接回滚 | `get_db()` 异常时自动 `rollback()`，防止脏连接污染连接池 |
+| **API 层** | 正确状态码 | 分析失败返回 HTTP 500 + 日志记录，模板不存在返回 HTTP 404 |
+| **前端** | Null Safety | workflowStore 所有节点 data 访问加 `|| {}` 防护，skillName/role 空值默认 '' |
+| **全局** | 中文异常翻译 | `main.py` 全局异常处理器将技术异常转为中文引导，无需查看 Traceback |
+
+### 关键防护节点
+
+```
+请求入口
+  ├─ API 404/500 正确状态码 + 日志
+  ├─ WebSocket 异常完整捕获 + 独立 per-connection 并发控制
+  ↓
+数据获取
+  ├─ FallbackProvider → 安全空值降级 (永不抛异常)
+  ├─ TTL 缓存损坏检测 → 自动清除 + 提示重试
+  ↓
+Agent 执行
+  ├─ 技能 None → {} 转换，避免下游格式化崩溃
+  ├─ LLM 超时 → 生成 {stance: neutral, confidence: 0} 占位意见
+  ├─ JSON 解析 → confidence float() 失败兜底 0.5
+  ↓
+工作流编排
+  ├─ conditional gate → isinstance(op, dict) 类型守卫
+  ├─ multi_round → max(round, 1) + min(rounds, 10) 双重防护
+  ├─ adaptive → 异常静默回退默认 Agent 组 + logger.warning
+  ↓
+数据持久化
+  └─ SQLite 异常 → rollback + 归还连接池 (finally 保证)
+```
+
+---
+
 ## 📜 免责声明
 
 本系统仅供学习和研究使用，AI 分析结果不构成投资建议。投资有风险，入市需谨慎。

@@ -44,8 +44,10 @@ class SummarizerAgent(BaseAgent):
         super().__init__(llm=llm, skills=[], extra_prompt=extra_prompt)
 
     async def summarize(self, symbol: str, market: str,
-                        opinions: list[dict[str, Any]]) -> FinalReport:
+                        opinions: list[dict[str, Any]] | None) -> FinalReport:
         """综合所有分析师意见，生成最终报告"""
+        if not opinions:
+            opinions = []
         system_prompt = """你是投资委员会的主席，负责综合各位分析师的意见，给出最终的投资研判。
 
 你的职责：

@@ -254,3 +254,13 @@ Run: `pytest tests/ -v`
 - **Factory**: `data/factory.py`, `adapters/factory.py`
 - **Singleton via module-level globals**: Agent/Skill registries
 - **asyncio.to_thread**: Bridging synchronous DB operations to async context
+
+## Error Handling & Stability
+
+- **Data Layer**: FallbackProvider returns safe empty values (`_safe_empty_result`) when all providers fail — never raises, ensuring analysis pipeline doesn't break on data issues
+- **Agent Layer**: Dual timeout (skill 30s + LLM 120s, both configurable). Skill None results → `{}` conversion. confidence `float()` failure → defaults to 0.5
+- **Graph Layer**: `multi_round` hard-capped at `min(rounds, 10)` + `max(round, 1)` guard. `conditional` gate uses `isinstance(op, dict)` type guard. `adaptive` logs warning on stock info failure instead of silent swallow
+- **Storage Layer**: `get_db()` context manager auto-rollbacks on exception before returning connection to pool
+- **API Layer**: HTTP 404 on missing template, 500 on analysis failure (with `logger.error`). WebSocket per-connection `_analysis_running` flag (no global race condition)
+- **Frontend**: `_buildWorkflowDefinition()` uses `|| {}` guards on all node data accesses. `saveWorkflow()` reads error response body
+- **Global Handler**: `main.py` `@app.exception_handler(Exception)` translates technical errors to Chinese guidance

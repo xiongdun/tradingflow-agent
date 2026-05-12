@@ -115,3 +115,47 @@ class TestBacktest:
         assert stats["total"] >= 1
         assert "stances" in stats
         assert stats["stances"]["bullish"] >= 1
+
+
+class TestDBRollback:
+    """测试 get_db() 异常时自动回滚 — 防止脏连接污染连接池"""
+
+    def test_rollback_on_error(self, patch_db_path):
+        """当 with 块内抛出异常时，连接必须调用 rollback()"""
+        import sqlite3
+        from unittest.mock import MagicMock, patch as mock_patch
+
+        mock_conn = MagicMock(spec=sqlite3.Connection)
+        mock_conn.row_factory = sqlite3.Row
+
+        return_spy = MagicMock()
+
+        with mock_patch("backend.repositories.base._ensure_db", return_value=mock_conn), \
+             mock_patch("backend.repositories.base._return_conn", return_spy):
+            from backend.repositories.base import get_db
+            try:
+                with get_db() as conn:
+                    raise ValueError("模拟数据库操作异常")
+            except ValueError:
+                pass
+
+        mock_conn.rollback.assert_called_once()
+
+    def test_normal_flow_no_rollback(self, patch_db_path):
+        """正常流程不触发 rollback，连接归还池"""
+        import sqlite3
+        from unittest.mock import MagicMock, patch as mock_patch
+
+        mock_conn = MagicMock(spec=sqlite3.Connection)
+        mock_conn.row_factory = sqlite3.Row
+
+        return_spy = MagicMock()
+
+        with mock_patch("backend.repositories.base._ensure_db", return_value=mock_conn), \
+             mock_patch("backend.repositories.base._return_conn", return_spy):
+            from backend.repositories.base import get_db
+            with get_db() as conn:
+                conn.execute("SELECT 1")
+
+        mock_conn.rollback.assert_not_called()
+        return_spy.assert_called_once()

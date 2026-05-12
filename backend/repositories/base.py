@@ -90,9 +90,12 @@ def _ensure_db() -> sqlite3.Connection:
 
 @contextmanager
 def get_db() -> Generator[sqlite3.Connection, None, None]:
-    """数据库连接上下文管理器 — 自动归还连接到连接池"""
+    """数据库连接上下文管理器 — 自动归还连接到连接池，异常时回滚"""
     conn = _ensure_db()
     try:
         yield conn
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         _return_conn(conn)
