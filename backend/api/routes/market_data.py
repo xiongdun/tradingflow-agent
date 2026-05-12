@@ -6,9 +6,10 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
+from backend.core.limiter import limiter
 from backend.data.factory import get_provider
 
 router = APIRouter(prefix="/api/market", tags=["market"])
@@ -30,7 +31,8 @@ class MarkerRequest(BaseModel):
 
 
 @router.post("/kline")
-async def get_kline(req: KlineRequest):
+@limiter.limit("30/minute")
+async def get_kline(req: KlineRequest, request: Request):
     """获取 K 线数据，格式化为 TradingView Lightweight Charts 可用格式"""
     try:
         provider = get_provider(req.market)

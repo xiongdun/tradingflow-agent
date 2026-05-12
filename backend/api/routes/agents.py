@@ -3,8 +3,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
+
+from backend.core.limiter import limiter
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 
@@ -34,7 +36,8 @@ class AgentUpdate(BaseModel):
 
 
 @router.get("")
-async def get_agents():
+@limiter.limit("30/minute")
+async def get_agents(request: Request):
     """列出所有可用 Agent（内置 + 自定义）及其当前技能配置"""
     from backend.agents.registry import list_agents
     from backend.core.custom_store import get_all_custom_agents

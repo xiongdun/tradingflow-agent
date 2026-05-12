@@ -176,6 +176,17 @@ class BaseAgent(ABC):
                 data_evidence=data,
             )
 
+        # 记录 Token 用量
+        try:
+            from backend.core.token_tracker import record_tokens, extract_token_usage
+            input_tokens, output_tokens = extract_token_usage(
+                getattr(response, "response_metadata", None) or getattr(response, "usage_metadata", None)
+            )
+            if input_tokens or output_tokens:
+                record_tokens(input_tokens, output_tokens)
+        except ImportError:
+            pass
+
         logger.info(f"[{self.name}] LLM 推理完成，解析输出...")
         # 第 4 步：解析结构化输出
         opinion = _parse_opinion(response.content, self.name, self.role, symbol, market, data)

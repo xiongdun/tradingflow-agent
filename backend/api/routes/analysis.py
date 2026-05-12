@@ -7,9 +7,11 @@ import json
 from datetime import datetime, date
 from typing import Any
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+
+from backend.core.limiter import limiter
 
 router = APIRouter(tags=["analysis"])
 
@@ -44,7 +46,8 @@ class AnalyzeRequest(BaseModel):
 
 
 @router.post("/api/analyze")
-async def run_analysis(req: AnalyzeRequest):
+@limiter.limit("10/minute")
+async def run_analysis(req: AnalyzeRequest, request: Request):
     """运行股票分析，返回完整分析报告（REST 同步模式）"""
     from backend.core.analysis_service import AnalysisService
 

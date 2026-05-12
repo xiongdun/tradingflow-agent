@@ -1,0 +1,31 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build and deploy
+        run: |
+          cp .env.example .env
+          echo "LLM_API_KEY=${LLM_API_KEY}" >> .env
+          docker compose up --build -d
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+
+      - name: Health check
+        run: |
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:8000/api/health | grep -q '"status":"ok"'; then
+              echo "Service healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Health check failed"
+          exit 1

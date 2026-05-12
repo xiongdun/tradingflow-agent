@@ -18,13 +18,13 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from loguru import logger
 
 from backend.core.config import load_settings
 from backend.core.config_writer import update_setting
+from backend.core.limiter import limiter
 
 
 # ──────────────────────────── 结构化日志 ────────────────────────────
@@ -61,8 +61,6 @@ auto_discover()
 
 # ──────────────────────────── 应用初始化 ────────────────────────────
 
-limiter = Limiter(key_func=get_remote_address)
-
 app = FastAPI(
     title="TradingFlow Agent",
     description="AI 多智能体股票分析系统 API",
@@ -93,6 +91,8 @@ from backend.api.routes.analysis import router as analysis_router
 from backend.api.routes.plugins import router as plugins_router
 from backend.api.routes.adapters import router as adapters_router
 from backend.api.routes.skills import router as skills_router
+from backend.api.routes.features import router as features_router
+from backend.api.routes.metrics import router as metrics_router
 
 app.include_router(market_router)
 app.include_router(agents_router)
@@ -105,6 +105,8 @@ app.include_router(analysis_router)
 app.include_router(plugins_router)
 app.include_router(adapters_router)
 app.include_router(skills_router)
+app.include_router(features_router)
+app.include_router(metrics_router)
 
 
 # ──────────────────────────── 请求/响应模型 ────────────────────────────
@@ -127,12 +129,18 @@ async def health():
 @app.get("/api/config")
 @limiter.limit("30/minute")
 async def get_config(request: Request):
-    """获取当前系统配置（API Key 脱敏显示）"""
+    """获取当前系统配置（API Key 脱敏显示）+ Token 用量统计"""
     settings = load_settings()
     data = settings.model_dump()
     if data.get("llm_api_key"):
         key = data["llm_api_key"]
         data["llm_api_key"] = key[:4] + "****" + key[-4:] if len(key) > 8 else "****"
+    # 附加 Token 用量统计
+    try:
+        from backend.core.token_tracker import get_stats
+        data["token_stats"] = get_stats()
+    except ImportError:
+        pass
     return data
 
 

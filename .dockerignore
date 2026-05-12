@@ -1,0 +1,44 @@
+# Docker 构建忽略文件 — 减小构建上下文，加速镜像构建
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+.git/
+.gitignore
+*.md
+LICENSE
+
+tests/
+scripts/
+
+.env
+.env.*
+*.log
+logs/
+
+.history/
+.idea/
+.vscode/
+*.code-workspace
+
+# 数据文件（不需要打包进镜像）
+*.db
+*.db-shm
+*.db-wal
+diskcache/
+cache/
+
+# Docker 自身
+.dockerignore
+Dockerfile*
+docker-compose*
