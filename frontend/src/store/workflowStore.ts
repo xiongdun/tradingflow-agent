@@ -4,6 +4,7 @@
 import { create } from 'zustand';
 import { applyNodeChanges, applyEdgeChanges, type NodeChange, type EdgeChange, type Node, type Edge } from '@xyflow/react';
 import type { AgentInfo, SkillInfo, FinalReport, AgentOpinion, WorkflowTemplate } from '../types';
+import type { PendingOrder } from '../components/Trading/TradeConfirmDialog';
 
 /** Agent 执行进度 */
 export interface AgentProgress {
@@ -34,6 +35,9 @@ interface WorkflowState {
   finalReport: FinalReport | null;  // 最终分析报告
   markdownReport: string;      // Markdown 格式报告
 
+  // ─── 交易状态 ───
+  pendingOrder: PendingOrder | null;  // 待确认的交易订单
+
   // ─── 节点配置 ───
   selectedNodeId: string | null;  // 当前选中的节点 ID
 
@@ -58,6 +62,7 @@ interface WorkflowState {
   addOpinion: (op: AgentOpinion) => void; // 添加分析师意见
   setFinalReport: (r: FinalReport | null, md?: string) => void;
   setSelectedNodeId: (id: string | null) => void;
+  setPendingOrder: (order: PendingOrder | null) => void;  // 设置待确认订单
   resetAnalysis: () => void;              // 重置所有分析状态
   loadFromTemplate: (template: WorkflowTemplate) => void;  // 从模板加载工作流
   saveWorkflow: (name: string) => Promise<void>;  // 保存当前画布为工作流模板
@@ -81,6 +86,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   opinions: [],
   finalReport: null,
   markdownReport: '',
+  pendingOrder: null,
   selectedNodeId: null,
 
   // ─── 画布操作 ───
@@ -132,6 +138,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   addOpinion: (op) => set((s) => ({ opinions: [...s.opinions, op] })),
   setFinalReport: (r, md = '') => set({ finalReport: r, markdownReport: md }),
   setSelectedNodeId: (id) => set({ selectedNodeId: id }),
+  setPendingOrder: (order) => set({ pendingOrder: order }),
 
   /** 重置所有分析状态（清空意见、报告、进度） */
   resetAnalysis: () => set({ opinions: [], finalReport: null, markdownReport: '', analysisProgress: [], isAnalyzing: false, analyzingAgents: [], agentProgressMap: {} }),
@@ -143,6 +150,104 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   loadFromTemplate: (template) => {
     const { agents, skills } = get();
     const gap = 140;
+    const skillMetaMap = new Map(skills.map((s) => [s.name, s]));
+
+    // ── v2 模板：直接从 definition.nodes/edges 渲染 ──
+    if (template.definition && template.definition.version >= 2 && template.definition.nodes) {
+      const def = template.definition;
+      const v2Nodes = def.nodes;
+
+      // 输入节点
+      const inputNode: Node = {
+        id: 'input', type: 'input',
+        position: { x: 20, y: 120 },
+        data: { label: '输入', symbol: '', market: 'a_share' },
+      };
+
+      const skillDefs = v2Nodes.filter((n) => n.type === 'skill');
+      const agentDefs = v2Nodes.filter((n) => n.type === 'agent');
+      const conditionDefs = v2Nodes.filter((n) => n.type === 'condition');
+
+      // 技能节点（x=300，竖排）
+      const canvasSkillNodes: Node[] = skillDefs.map((n, i) => {
+        const meta = skillMetaMap.get(n.skill || n.id);
+        return {
+          id: n.id, type: 'skill',
+          position: { x: 300, y: 40 + i * 80 },
+          data: {
+            skillName: n.skill || n.id, label: meta?.label || n.skill || n.id,
+            category: meta?.category || 'general', description: meta?.description || n.skill || n.id,
+            params: n.params || {},
+          },
+        };
+      });
+
+      // Agent 节点（x=600，竖排，排除 trading）
+      const analystAgentDefs = agentDefs.filter((n) => n.role !== 'trading');
+      const canvasAgentNodes: Node[] = analystAgentDefs.map((n, i) => {
+        const agent = agents.find((a) => a.role === n.role);
+        return {
+          id: n.id, type: 'analyst',
+          position: { x: 600, y: 40 + i * gap },
+          data: { role: n.role, label: n.name || agent?.name || n.role, skills: n.skills || agent?.current_skills || [] },
+        };
+      });
+
+      // 条件节点（x=900）
+      const canvasConditionNodes: Node[] = conditionDefs.map((n, i) => ({
+        id: n.id, type: 'condition',
+        position: { x: 900, y: 40 + i * gap },
+        data: { label: n.id, field: n.field || 'opinions', rules: n.rules || [] },
+      }));
+
+      // 总结研判节点（最右）
+      const totalHeight = Math.max(analystAgentDefs.length - 1, 0) * gap;
+      const summarizerNode: Node = {
+        id: 'summarizer', type: 'summarizer',
+        position: { x: 1200, y: 40 + totalHeight / 2 },
+        data: { role: 'summarizer', label: '总结研判', skills: [] },
+      };
+
+      // 交易节点（总结之后）
+      const tradingDef = agentDefs.find((n) => n.role === 'trading');
+      let tradingNode: Node | null = null;
+      if (tradingDef) {
+        const agent = agents.find((a) => a.role === tradingDef.role);
+        tradingNode = {
+          id: tradingDef.id, type: 'trading',
+          position: { x: 1500, y: 40 + totalHeight / 2 },
+          data: { role: tradingDef.role, label: tradingDef.name || agent?.name || '交易员', skills: tradingDef.skills || agent?.current_skills || [] },
+        };
+      }
+
+      // 边：过滤 START/END 虚拟节点
+      const canvasEdges: Edge[] = (def.edges || []).filter(
+        (e) => e.source !== 'START' && e.target !== 'END'
+      ).map((e) => ({
+        id: `${e.source}-${e.target}${e.condition ? `-${e.condition}` : ''}`,
+        source: e.source, target: e.target,
+        sourceHandle: 'right', targetHandle: 'left',
+        label: e.condition && e.condition !== 'default' ? e.condition : undefined,
+        style: e.condition && e.condition !== 'default' ? { stroke: 'var(--accent-orange)', strokeDasharray: '5 5' } : undefined,
+      }));
+
+      // 补充：Input → 顶层节点（没被其他节点指向的）
+      const targets = new Set(def.edges.filter((e) => e.source !== 'START').map((e) => e.target));
+      v2Nodes.filter((n) => !targets.has(n.id) && n.type !== 'condition').forEach((n) => {
+        canvasEdges.push({
+          id: `input-${n.id}`, source: 'input', target: n.id,
+          sourceHandle: 'right', targetHandle: 'left',
+        });
+      });
+
+      set({
+        nodes: [inputNode, ...canvasSkillNodes, ...canvasAgentNodes, ...canvasConditionNodes, summarizerNode, ...(tradingNode ? [tradingNode] : [])],
+        edges: canvasEdges,
+      });
+      return;
+    }
+
+    // ── v1 模板：原有逻辑 ──
 
     // 输入节点（最左侧）
     const inputNode: Node = {
@@ -152,8 +257,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       data: { label: '输入', symbol: '', market: 'a_share' },
     };
 
-    // 收集所有技能（去重），从 store 的 skills 数组中查找真实的 category、description 和 label
-    const skillMetaMap = new Map(skills.map((s) => [s.name, s]));
+    // 收集所有技能（去重）
     const allSkills = new Map<string, { category: string; description: string; label: string }>();
     template.agents.forEach((role) => {
       const agent = agents.find((a) => a.role === role);
@@ -178,7 +282,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       data: { skillName: sk, label: allSkills.get(sk)!.label, category: allSkills.get(sk)!.category, description: allSkills.get(sk)!.description, params: {} },
     }));
 
-    // 分析师节点竖排（中间）— 排除 trading，它放在总结之后
+    // 分析师节点竖排（中间）— 排除 trading
     const analystRoles = template.agents.filter((r) => r !== 'trading');
     const analystNodes: Node[] = analystRoles.map((role, i) => {
       const agent = agents.find((a) => a.role === role);
@@ -199,7 +303,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       data: { role: 'summarizer', label: '总结研判', skills: [] },
     };
 
-    // 交易执行节点（总结之后，最右侧）
+    // 交易执行节点
     const tradingRole = template.agents.find((r) => r === 'trading');
     let tradingNode: Node | null = null;
     if (tradingRole) {
@@ -245,7 +349,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       targetHandle: 'left',
     }));
 
-    // 边：Summarizer → Trading（如果存在交易节点）
+    // 边：Summarizer → Trading
     const tradingEdges: Edge[] = tradingNode ? [{
       id: 'summarizer-trading',
       source: 'summarizer',
@@ -254,7 +358,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       targetHandle: 'left',
     }] : [];
 
-    // 收集所有需要的技能节点（仅分析师引用的）
+    // 收集所有需要的技能节点
     const neededSkillNames = new Set<string>();
     analystRoles.forEach((role) => {
       const agent = agents.find((a) => a.role === role);

@@ -18,7 +18,7 @@ from backend.skills.registry import skill
 def get_shareholder_analysis(symbol: str, market: str = "a_share") -> dict[str, Any]:
     """获取股票的股东结构和变动数据"""
     import akshare as ak
-    result = {
+    result: dict[str, Any] = {
         "symbol": symbol,
         "market": "a_share",
         "top10_holders": [],

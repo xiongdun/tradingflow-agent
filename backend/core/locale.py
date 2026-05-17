@@ -3,16 +3,13 @@
 
 from __future__ import annotations
 
-from loguru import logger
 
-from typing import Any
 
-from backend.core.config import load_settings
 
 # ── 报告文本翻译 ──
 REPORT_LOCALE: dict[str, dict[str, str]] = {
     "zh": {
-        "report_title": "# 📊 股票分析报告: {stock} ({market})",
+        "report_title": "# 📊 标的分析报告: {stock} ({market})",
         "generated_at": "**生成时间**",
         "section_overall": "## 🎯 综合研判",
         "col_indicator": "指标",
@@ -40,7 +37,7 @@ REPORT_LOCALE: dict[str, dict[str, str]] = {
         "action_watch": "👀 建议观望",
     },
     "en": {
-        "report_title": "# 📊 Stock Analysis Report: {stock} ({market})",
+        "report_title": "# 📊 Analysis Report: {stock} ({market})",
         "generated_at": "**Generated At**",
         "section_overall": "## 🎯 Overall Assessment",
         "col_indicator": "Indicator",

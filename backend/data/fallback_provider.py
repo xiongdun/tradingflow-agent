@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from loguru import logger
@@ -57,7 +58,7 @@ class FallbackProvider(DataProvider):
         而非抛出异常，确保分析流程不会因数据问题完全中断。
         """
         def _do_try_with_retry(*a: Any, **kw: Any) -> Any:
-            last_error = None
+            last_error: Exception | None = None
             for provider in self._providers:
                 def _make_call(_p: DataProvider, _args: tuple, _kw: dict) -> Any:
                     retry_stop, retry_wait = _get_retry_config()
@@ -65,7 +66,7 @@ class FallbackProvider(DataProvider):
                         stop=retry_stop,
                         wait=retry_wait,
                         retry=retry_if_exception_type(_RETRYABLE_ERRORS),
-                        before_sleep=before_sleep_log(logger, "WARNING"),
+                        before_sleep=before_sleep_log(logger, logging.WARNING),
                         reraise=True,
                     )
                     def _call() -> Any:

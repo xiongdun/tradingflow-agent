@@ -75,7 +75,7 @@ def demo():
 @app.command()
 def analyze(
     symbol: str = typer.Argument(help="股票代码 (如: 600519, AAPL)"),
-    market: str = typer.Option("a_share", "--market", "-m", help="市场: a_share, h_stock, us_stock"),
+    market: str = typer.Option("a_share", "--market", "-m", help="市场: a_share, h_stock, us_stock, bond, futures, crypto"),
     workflow: str = typer.Option("deep_analysis", "--workflow", "-w", help="工作流模板: quick_scan, deep_analysis, debate"),
     agents: str = typer.Option("", "--agents", "-a", help="指定 Agent (逗号分隔): fundamental,technical,sentiment,news,macro"),
     output: str = typer.Option("", "--output", "-o", help="输出文件路径 (默认打印到终端)"),
@@ -104,13 +104,13 @@ def analyze(
     agents_raw = workflow_def.get("agents", [])
     mode = workflow_def.get("mode", "parallel")
     if mode == "conditional":
-        agent_names = []
+        agent_names: list[str] = []
         for stage in workflow_def.get("stages", []):
-            agent_names.extend(stage.get("agents", []))
+            agent_names.extend(stage.get("agents", []))  # type: ignore[attr-defined]
     elif agents_raw and isinstance(agents_raw[0], str):
-        agent_names = agents_raw
+        agent_names = list(agents_raw)  # type: ignore[arg-type]
     else:
-        agent_names = [a["role"] for a in agents_raw]
+        agent_names = [a["role"] for a in agents_raw]  # type: ignore[index]
     console.print(f"👥 参与 Agent: {', '.join(agent_names)}\n")
 
     from backend.graph.builder import build_from_json
@@ -234,7 +234,7 @@ def _get_error_hints(exc: Exception) -> list[str]:
         f"⚠️ 分析过程遇到错误: {exc}",
         "",
         "  • 检查股票代码是否正确（A股 6 位，美股字母）",
-        "  • 检查市场选择: -m a_share / -m h_stock / -m us_stock",
+        "  • 检查市场选择: -m a_share / -m h_stock / -m us_stock / -m bond / -m futures / -m crypto",
         "  • 检查 .env 中的 LLM 配置是否正确",
         "  • 查看日志: 设置 LOG_LEVEL=DEBUG 获取详细信息",
         "  • 🎓 试试零配置演示: tradingflow demo",
@@ -252,26 +252,20 @@ def search(
         from backend.core.discovery import auto_discover
         auto_discover()
 
-        from backend.data.factory import create_provider
-        provider = create_provider("a_share")
+        from backend.data.factory import get_provider
+        provider = get_provider("a_share")
 
         results = provider.search_stock(keyword)
         if not results:
             results = provider.search_stock(keyword.lower())
 
-        if not results:
-            try:
-                hk_provider = create_provider("h_stock")
-                results = hk_provider.search_stock(keyword)
-            except Exception:
-                pass
-
-        if not results:
-            try:
-                us_provider = create_provider("us_stock")
-                results = us_provider.search_stock(keyword)
-            except Exception:
-                pass
+        for extra_market in ("h_stock", "us_stock", "bond", "futures", "crypto"):
+            if not results:
+                try:
+                    provider = get_provider(extra_market)
+                    results = provider.search_stock(keyword)
+                except Exception:
+                    pass
 
         if not results:
             console.print("[yellow]⚠️ 未找到匹配的股票，请尝试其他关键词[/yellow]")
@@ -325,13 +319,17 @@ def _print_common_stocks(keyword: str):
         ("AAPL", "Apple Inc.", "us_stock"),
         ("MSFT", "Microsoft Corp.", "us_stock"),
         ("TSLA", "Tesla Inc.", "us_stock"),
+        ("BTC", "Bitcoin", "crypto"),
+        ("ETH", "Ethereum", "crypto"),
+        ("IF2506", "沪深300期货", "futures"),
+        ("511010", "国债ETF", "bond"),
     ]
     filtered = [(c, n, m) for c, n, m in common if kw in n.lower() or kw in c.lower()]
     if not filtered:
         filtered = common
 
     for code, name, mkt in filtered[:10]:
-        market_label = {"a_share": "A股", "h_stock": "港股", "us_stock": "美股"}.get(mkt, mkt)
+        market_label = {"a_share": "A股", "h_stock": "港股", "us_stock": "美股", "bond": "债券", "futures": "期货", "crypto": "加密货币"}.get(mkt, mkt)
         console.print(f"  [cyan]{code}[/] — {name} ({market_label})")
 
 

@@ -11,7 +11,7 @@ from backend.skills.registry import skill
 @skill(
     name="sentiment_scan",
     description="扫描股票市场情绪指标（量比/换手率/涨跌停/资金流向等），用于情绪面分析",
-    markets=["a_share", "h_stock", "us_stock"],
+    markets=["a_share", "h_stock", "us_stock", "crypto"],
     category="sentiment",
     label="情绪扫描",
 )
@@ -25,7 +25,7 @@ def scan_sentiment(symbol: str, market: str) -> dict[str, Any]:
 def _scan_a_share_sentiment(symbol: str) -> dict[str, Any]:
     """扫描 A 股市场情绪指标，包括资金流向、量比、换手率、振幅等"""
     import akshare as ak
-    result = {"symbol": symbol, "market": "a_share", "indicators": {}}
+    result: dict[str, Any] = {"symbol": symbol, "market": "a_share", "indicators": {}}
 
     # 根据股票代码判断交易所：6开头=上海，0/3开头=深圳
     exchange = "sh" if symbol.startswith("6") else "sz"
@@ -78,8 +78,7 @@ def _scan_a_share_sentiment(symbol: str) -> dict[str, Any]:
 def _scan_yfinance_sentiment(symbol: str, market: str) -> dict[str, Any]:
     """通过 yfinance 扫描港股/美股情绪指标（量比、涨跌趋势、Beta、波动率）"""
     import yfinance as yf
-    import pandas as pd
-    result = {"symbol": symbol, "market": market, "indicators": {}}
+    result: dict[str, Any] = {"symbol": symbol, "market": market, "indicators": {}}
 
     try:
         ticker = yf.Ticker(symbol)

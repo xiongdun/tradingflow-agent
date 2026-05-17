@@ -87,7 +87,7 @@ def skill(
             label=label,
         )
         _skills[name] = meta
-        fn._skill_meta = meta  # 将元数据挂载到函数上，方便内省
+        fn._skill_meta = meta  # type: ignore[attr-defined]
         return fn
     return decorator
 

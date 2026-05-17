@@ -75,7 +75,9 @@ def create_base_graph(
     llm, agents = create_agents(agent_roles, **agent_kwargs)
     summarizer = create_summarizer(llm, summarizer_prompt)
 
-    builder = StateGraph(state_class)
+    from langgraph.graph import StateGraph
+
+    builder: StateGraph = StateGraph(state_class)
     for role, agent in agents.items():
         builder.add_node(role, agent.run)
     builder.add_node("summarizer", summarizer.run)

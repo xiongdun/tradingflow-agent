@@ -71,7 +71,7 @@ class TestGenerateMarkdownReport:
     def test_english_report(self, sample_report):
         from backend.output.report import generate_markdown_report
         md = generate_markdown_report(sample_report, "en")
-        assert "Stock Analysis Report" in md
+        assert "Analysis Report" in md
         assert "Bullish" in md or "bullish" in md
 
     def test_empty_opinions(self):

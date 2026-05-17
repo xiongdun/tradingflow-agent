@@ -28,6 +28,7 @@ async def list_workflows():
     for f in TEMPLATES_DIR.glob("*.json"):
         defn = json.loads(f.read_text(encoding="utf-8"))
         mode = defn.get("mode", "parallel")
+        version = defn.get("version", 1)
 
         agents_raw = defn.get("agents", [])
         if mode == "conditional":
@@ -36,8 +37,15 @@ async def list_workflows():
                 agent_roles.extend(stage.get("agents", []))
         elif agents_raw and isinstance(agents_raw[0], str):
             agent_roles = agents_raw
-        else:
+        elif agents_raw and isinstance(agents_raw[0], dict):
             agent_roles = [a["role"] for a in agents_raw]
+        else:
+            # v2 模板：从 nodes 数组中提取 agent 角色
+            agent_roles = [
+                n.get("role", n.get("id", ""))
+                for n in defn.get("nodes", [])
+                if n.get("type") == "agent"
+            ]
 
         workflows.append({
             "id": f.stem,
@@ -45,7 +53,8 @@ async def list_workflows():
             "description": defn.get("description", ""),
             "mode": mode,
             "agents": agent_roles,
-            "version": defn.get("version"),
+            "version": version,
+            "definition": defn if version >= 2 else None,
         })
     return workflows
 

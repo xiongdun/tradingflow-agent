@@ -2,6 +2,7 @@
 // 应用根组件 — 主布局：顶部控制栏 + 标签页切换（工作流编排 / 分析结果）
 
 import { useState, useEffect, useCallback, useRef, Component, type ReactNode, lazy, Suspense } from 'react';
+import { useWorkflowStore } from './store/workflowStore';
 import { Sidebar } from './components/WorkflowEditor/Sidebar';
 import { WorkflowEditorCanvas } from './components/WorkflowEditor/Canvas';
 import { NodeConfig } from './components/WorkflowEditor/NodeConfig';
@@ -15,6 +16,8 @@ const HistoryPanel = lazy(() => import('./components/History/HistoryPanel').then
 const WatchlistPanel = lazy(() => import('./components/Watchlist/WatchlistPanel').then(m => ({ default: m.WatchlistPanel })));
 const SchedulePanel = lazy(() => import('./components/Schedule/SchedulePanel').then(m => ({ default: m.SchedulePanel })));
 const SettingsPanel = lazy(() => import('./components/Settings/SettingsPanel').then(m => ({ default: m.SettingsPanel })));
+const TradePanel = lazy(() => import('./components/Trading/TradePanel').then(m => ({ default: m.TradePanel })));
+const TradeConfirmDialog = lazy(() => import('./components/Trading/TradeConfirmDialog').then(m => ({ default: m.TradeConfirmDialog })));
 
 /** 可拖拽调整宽度的面板容器 */
 function ResizablePanel({
@@ -108,7 +111,7 @@ class ErrorBoundary extends Component<
 }
 
 // 标签页类型：workflow（工作流编排）、report（分析结果）、history（历史记录）、watchlist（自选股）、schedule（定时任务）、settings（系统设置）
-type Tab = 'workflow' | 'report' | 'history' | 'watchlist' | 'schedule' | 'settings';
+type Tab = 'workflow' | 'report' | 'history' | 'watchlist' | 'schedule' | 'trading' | 'settings';
 
 const ONBOARDING_KEY = 'tradingflow_onboarding_done_v1';
 
@@ -205,6 +208,8 @@ function OnboardingModal({ onDismiss }: { onDismiss: (dontShowAgain: boolean) =>
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('workflow');
+  const pendingOrder = useWorkflowStore((s) => s.pendingOrder);
+  const setPendingOrder = useWorkflowStore((s) => s.setPendingOrder);
   const [showOnboarding, setShowOnboarding] = useState(() => {
     return !localStorage.getItem(ONBOARDING_KEY);
   });
@@ -226,6 +231,24 @@ export default function App() {
     <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)', color: 'var(--text)' }}>
       <ToastContainer />
       {showOnboarding && <OnboardingModal onDismiss={dismissOnboarding} />}
+
+      {/* 交易确认弹窗 */}
+      {pendingOrder && (
+        <Suspense fallback={null}>
+          <TradeConfirmDialog
+            order={pendingOrder}
+            onConfirm={async (orderId) => {
+              await fetch(`/api/trading/orders/${orderId}/confirm`, { method: 'POST' });
+              setPendingOrder(null);
+            }}
+            onCancel={async (orderId) => {
+              await fetch(`/api/trading/orders/${orderId}/cancel`, { method: 'POST' });
+              setPendingOrder(null);
+            }}
+            onClose={() => setPendingOrder(null)}
+          />
+        </Suspense>
+      )}
       {/* 顶部控制栏：股票代码输入、市场选择、分析按钮 */}
       <ControlBar />
 
@@ -234,7 +257,7 @@ export default function App() {
         display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--bg-panel)',
         backdropFilter: 'var(--blur)', WebkitBackdropFilter: 'var(--blur)',
       }}>
-        {(['workflow', 'report', 'history', 'watchlist', 'schedule'] as Tab[]).map((tabKey) => (
+        {(['workflow', 'report', 'history', 'watchlist', 'schedule', 'trading'] as Tab[]).map((tabKey) => (
           <button
             key={tabKey}
             onClick={() => setTab(tabKey)}
@@ -248,7 +271,7 @@ export default function App() {
               transition: 'all 0.2s',
             }}
           >
-            {t(tabKey === 'workflow' ? 'tab.workflow' : tabKey === 'report' ? 'tab.report' : tabKey === 'history' ? 'tab.history' : tabKey === 'watchlist' ? 'tab.watchlist' : 'tab.schedule')}
+            {t(tabKey === 'workflow' ? 'tab.workflow' : tabKey === 'report' ? 'tab.report' : tabKey === 'history' ? 'tab.history' : tabKey === 'watchlist' ? 'tab.watchlist' : tabKey === 'trading' ? 'tab.trading' : 'tab.schedule')}
           </button>
         ))}
         {/* 分隔线 */}
@@ -316,6 +339,14 @@ export default function App() {
             <ErrorBoundary label="自选股">
               <Suspense fallback={<div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>加载中...</div>}>
                 <WatchlistPanel />
+              </Suspense>
+            </ErrorBoundary>
+          </div>
+        ) : tab === 'trading' ? (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <ErrorBoundary label="交易面板">
+              <Suspense fallback={<div style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)' }}>加载中...</div>}>
+                <TradePanel />
               </Suspense>
             </ErrorBoundary>
           </div>

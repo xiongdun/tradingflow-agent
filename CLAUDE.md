@@ -94,15 +94,18 @@ and dependency validation through `PluginValidator`.
 - `locale.py` — Bilingual translation (zh/en) for agent prompts and report headers
 - `parsing.py` — Robust JSON extraction from LLM responses (handles markdown fences, trailing commas)
 - `exceptions.py` — Custom exception hierarchy
+- `feature_flags.py` — Lightweight feature flag system from `FEATURE_*=true/false` env vars, supports runtime queries and agent/skill experimental markers
+- `limiter.py` — Shared slowapi `Limiter` instance (60/minute default) for `main.py` and API routers, avoids circular imports
+- `token_tracker.py` — Thread-safe LLM token usage tracker with per-day stats and quota alerts
 
 ### Repositories (backend/repositories/)
 - `base.py` — SQLite connection pool with `get_db()` context manager + auto table init
 - `history.py` — Analysis history CRUD + backtest accuracy statistics. All DB access via `get_db()` (proper pool management)
 
-### API Routes (backend/api/routes/) — 12 route modules
-`analysis.py`, `agents.py`, `skills.py` (migrated from main.py), `adapters.py`,
+### API Routes (backend/api/routes/) — 14 route modules
+`analysis.py`, `agents.py`, `skills.py`, `adapters.py`,
 `plugins.py`, `workflows.py`, `market_data.py`, `data_sources.py`, `history.py`,
-`watchlist.py`, `schedules.py`
+`watchlist.py`, `schedules.py`, `features.py` (feature flags), `metrics.py` (Prometheus)
 
 ### Main Entry (backend/main.py)
 - FastAPI app with CORS middleware

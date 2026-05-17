@@ -21,7 +21,7 @@ class YFinanceProvider(DataProvider):
         try:
             ticker = yf.Ticker(symbol)
             info = ticker.info
-            hist = ticker.history(period="1d")
+            ticker.history(period="1d")
 
             # 优先使用 currentPrice，降级到 regularMarketPrice
             price = info.get("currentPrice") or info.get("regularMarketPrice", 0)

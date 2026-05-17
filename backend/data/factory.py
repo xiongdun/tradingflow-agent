@@ -54,7 +54,7 @@ def _load_provider_config() -> dict[str, list[str]]:
         pass
     # 从注册表自动推导默认优先级
     from backend.data.provider import get_provider_defaults
-    return {m: get_provider_defaults(m) for m in ("a_share", "h_stock", "us_stock")}
+    return {m: get_provider_defaults(m) for m in ("a_share", "h_stock", "us_stock", "bond", "futures", "crypto")}
 
 
 # 数据源优先级配置（启动时从 .env 加载，可通过 API 动态修改）

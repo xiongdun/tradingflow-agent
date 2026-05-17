@@ -11,7 +11,7 @@ from backend.skills.registry import skill
 @skill(
     name="industry_analysis",
     description="综合行业分析：行业排名、板块资金流向、同行业对比、行业趋势",
-    markets=["a_share", "h_stock", "us_stock"],
+    markets=["a_share", "h_stock", "us_stock", "bond", "futures", "crypto"],
     category="fundamental",
     label="行业分析",
 )
@@ -25,7 +25,7 @@ def analyze_industry(symbol: str, market: str) -> dict[str, Any]:
 def _analyze_a_share_industry(symbol: str) -> dict[str, Any]:
     """A 股行业分析：行业排名 + 板块资金流向 + 同行业个股"""
     import akshare as ak
-    result = {"symbol": symbol, "market": "a_share", "industry": "", "sector_data": {}, "peers": []}
+    result: dict[str, Any] = {"symbol": symbol, "market": "a_share", "industry": "", "sector_data": {}, "peers": []}
 
     try:
         df = ak.stock_zh_a_spot_em()
@@ -71,7 +71,7 @@ def _analyze_a_share_industry(symbol: str) -> dict[str, Any]:
 def _analyze_yfinance_industry(symbol: str, market: str) -> dict[str, Any]:
     """港股/美股行业分析"""
     import yfinance as yf
-    result = {"symbol": symbol, "market": market, "industry": "", "sector_data": {}, "peers": []}
+    result: dict[str, Any] = {"symbol": symbol, "market": market, "industry": "", "sector_data": {}, "peers": []}
 
     try:
         info = yf.Ticker(symbol).info

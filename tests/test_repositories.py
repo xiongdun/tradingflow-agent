@@ -134,7 +134,7 @@ class TestDBRollback:
              mock_patch("backend.repositories.base._return_conn", return_spy):
             from backend.repositories.base import get_db
             try:
-                with get_db() as conn:
+                with get_db() as _conn:
                     raise ValueError("模拟数据库操作异常")
             except ValueError:
                 pass

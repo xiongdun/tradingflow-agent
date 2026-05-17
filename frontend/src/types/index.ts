@@ -153,6 +153,29 @@ export interface WorkflowTemplate {
   name: string;                // 模板名称
   description: string;         // 模板描述
   agents: string[];            // 包含的 Agent 角色列表
+  version?: number;            // 模板版本（v2 = 含 nodes/edges）
+  definition?: {               // v2 完整定义（含 nodes、edges、summarizer_prompt）
+    version: number;
+    nodes: Array<{
+      id: string;
+      type: string;
+      skill?: string;
+      role?: string;
+      output_key?: string;
+      params?: Record<string, unknown>;
+      skills?: string[];
+      name?: string;
+      field?: string;
+      rules?: Array<{ label: string; description?: string }>;
+      extra_prompt?: string;
+    }>;
+    edges: Array<{
+      source: string;
+      target: string;
+      condition?: string;
+    }>;
+    summarizer_prompt?: string;
+  };
 }
 
 // ─── 分析结果类型 ───
@@ -208,7 +231,7 @@ export interface AppConfig {
 
 /** WebSocket 消息 — 后端推送的实时消息协议 */
 export interface WSMessage {
-  type: 'status' | 'opinion' | 'report' | 'error' | 'agent_status';  // 消息类型
+  type: 'status' | 'opinion' | 'report' | 'error' | 'agent_status' | 'trade_order';  // 消息类型
   status?: string;             // 状态值（started/running/completed）
   agents?: string[];           // 参与分析的 Agent 列表
   workflow?: string;           // 工作流名称
@@ -219,6 +242,9 @@ export interface WSMessage {
   agent_role?: string;          // Agent 角色（agent_status 消息用）
   agent_name?: string;          // Agent 名称
   skill?: string;               // 技能名称（skill_done 消息用）
+  // ── trade_order 消息字段 ──
+  order_id?: string;            // 订单 ID
+  confirm_required?: boolean;   // 是否需要用户确认
 }
 
 // ─── 插件系统类型 ───

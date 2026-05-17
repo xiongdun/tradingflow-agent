@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -230,7 +230,6 @@ class TestSummarizerSafety:
         s.llm.ainvoke.return_value = MagicMock()
         s.llm.ainvoke.return_value.content = '{"overall_stance":"neutral","overall_confidence":0.5,"consensus_points":[],"disagreement_points":[],"key_risks":[],"opportunities":[],"action_suggestion":"hold","summary":"ok"}'
 
-        import asyncio
         result = asyncio.get_event_loop().run_until_complete(
             s.summarize("600519", "a_share", None)
         )
@@ -249,7 +248,6 @@ class TestSummarizerSafety:
         s.llm.ainvoke.return_value = MagicMock()
         s.llm.ainvoke.return_value.content = '{"overall_stance":"neutral","overall_confidence":0.5,"consensus_points":[],"disagreement_points":[],"key_risks":[],"opportunities":[],"action_suggestion":"hold","summary":"ok"}'
 
-        import asyncio
         result = asyncio.get_event_loop().run_until_complete(
             s.summarize("600519", "a_share", [])
         )

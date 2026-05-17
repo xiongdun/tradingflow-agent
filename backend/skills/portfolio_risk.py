@@ -15,7 +15,7 @@ from backend.skills.registry import skill
 @skill(
     name="portfolio_risk",
     description="评估股票的风险指标：波动率、流动性、VaR、最大回撤、风险评分",
-    markets=["a_share", "h_stock", "us_stock"],
+    markets=["a_share", "h_stock", "us_stock", "bond", "futures", "crypto"],
     category="trading",
     label="风险评估",
     params={},

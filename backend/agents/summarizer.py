@@ -99,7 +99,7 @@ class SummarizerAgent(BaseAgent):
         ]
 
         response = await self.llm.ainvoke(messages)
-        report = _parse_report(response.content, symbol, market, opinions)
+        report = _parse_report(str(response.content), symbol, market, opinions)
         return report
 
     async def run(self, state: dict) -> dict:

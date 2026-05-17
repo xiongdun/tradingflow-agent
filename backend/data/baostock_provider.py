@@ -7,7 +7,6 @@ from datetime import datetime
 from typing import Any
 
 import pandas as pd
-from loguru import logger
 
 from backend.data.provider import DataProvider, StockInfo, StockQuote, provider
 

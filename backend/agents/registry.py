@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from backend.agents.base import BaseAgent
+    pass
 
 # Agent 注册表
 _agents_registry: dict[str, type] = {}
@@ -17,10 +17,10 @@ _skill_overrides: dict[str, list[str]] = {}
 def agent(name: str, role: str, default_skills: list[str] | None = None, system_prompt: str = ""):
     """装饰器：将 BaseAgent 子类注册到全局注册表"""
     def decorator(cls: type) -> type:
-        cls.name = name
-        cls.role = role
-        cls.default_skills = default_skills or []
-        cls.system_prompt = system_prompt
+        cls.name = name  # type: ignore[attr-defined]
+        cls.role = role  # type: ignore[attr-defined]
+        cls.default_skills = default_skills or []  # type: ignore[attr-defined]
+        cls.system_prompt = system_prompt  # type: ignore[attr-defined]
         _agents_registry[role] = cls
         return cls
     return decorator
@@ -35,10 +35,10 @@ def list_all_agents() -> list[dict]:
     all_skills = [s["name"] for s in list_skills()]
     return [
         {
-            "role": cls.role,
-            "name": cls.name,
-            "default_skills": cls.default_skills,
-            "current_skills": _skill_overrides.get(cls.role, list(cls.default_skills)),
+            "role": cls.role,  # type: ignore[attr-defined]
+            "name": cls.name,  # type: ignore[attr-defined]
+            "default_skills": cls.default_skills,  # type: ignore[attr-defined]
+            "current_skills": _skill_overrides.get(cls.role, list(cls.default_skills)),  # type: ignore[attr-defined]
             "available_skills": all_skills,
         }
         for cls in _agents_registry.values()
@@ -53,7 +53,7 @@ def get_agent_skills(role: str) -> list[str]:
     cls = _agents_registry.get(role)
     if not cls:
         return []
-    return _skill_overrides.get(role, list(cls.default_skills))
+    return _skill_overrides.get(role, list(cls.default_skills))  # type: ignore[attr-defined]
 
 
 def set_agent_skills(role: str, skills: list[str]) -> bool:

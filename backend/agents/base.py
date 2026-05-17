@@ -189,7 +189,7 @@ class BaseAgent(ABC):
 
         logger.info(f"[{self.name}] LLM 推理完成，解析输出...")
         # 第 4 步：解析结构化输出
-        opinion = _parse_opinion(response.content, self.name, self.role, symbol, market, data)
+        opinion = _parse_opinion(str(response.content), self.name, self.role, symbol, market, data)
         return opinion
 
     async def run(self, state: dict) -> dict:

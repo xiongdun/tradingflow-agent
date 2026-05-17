@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-import pytest
 
 
 class TestGetReportText:
@@ -14,12 +13,12 @@ class TestGetReportText:
     def test_zh_translation(self):
         from backend.core.locale import get_report_text
         result = get_report_text("report_title", "zh")
-        assert "股票分析报告" in result
+        assert "标的分析报告" in result
 
     def test_en_translation(self):
         from backend.core.locale import get_report_text
         result = get_report_text("report_title", "en")
-        assert "Stock Analysis Report" in result
+        assert "Analysis Report" in result
 
     def test_unknown_key_returns_key(self):
         from backend.core.locale import get_report_text
@@ -29,14 +28,14 @@ class TestGetReportText:
     def test_unknown_lang_fallback_zh(self):
         from backend.core.locale import get_report_text
         result = get_report_text("report_title", "fr")
-        assert "股票分析报告" in result
+        assert "标的分析报告" in result
 
     def test_auto_lang_from_config(self):
         from backend.core.locale import get_report_text
         with patch("backend.core.config.load_settings") as mock_settings:
             mock_settings.return_value.language = "en"
             result = get_report_text("report_title")
-            assert "Stock Analysis Report" in result
+            assert "Analysis Report" in result
 
 
 class TestGetStanceEmoji:

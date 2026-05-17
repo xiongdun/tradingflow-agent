@@ -1,56 +1,36 @@
 # tests/test_database.py
-# 数据库模块测试 — CRUD + 回测
+# 数据库连接池模块测试 — 连接获取、复用、表格初始化
 
 from __future__ import annotations
 
-import pytest
 
+class TestDatabaseConnectionPool:
+    def test_get_db_returns_connection(self, patch_db_path):
+        from backend.repositories.base import get_db
+        with get_db() as conn:
+            cursor = conn.execute("SELECT 1")
+            assert cursor.fetchone()[0] == 1
 
-class TestDatabase:
-    @pytest.mark.asyncio
-    async def test_save_and_list(self, patch_db_path):
-        from backend.core.database import save_analysis, list_history
+    def test_connection_pool_reuse(self, patch_db_path):
+        from backend.repositories.base import get_db
+        with get_db() as conn1:
+            conn1.execute("CREATE TABLE IF NOT EXISTS _test_pool (id INTEGER)")
+            conn1.commit()
+        with get_db() as conn2:
+            conn2.execute("DROP TABLE IF EXISTS _test_pool")
+            conn2.commit()
 
-        await save_analysis(
-            symbol="TEST", market="a_share", workflow="deep_analysis",
-            agents=["fundamental", "technical"],
-            opinions=[{"agent_name": "Fund", "stance": "bullish", "confidence": 0.8}],
-            report={"overall_stance": "bullish", "overall_confidence": 0.8},
-            markdown="# Test Report",
-        )
-        records = await list_history()
-        assert len(records) >= 1
-        assert records[0]["symbol"] == "TEST"
+    def test_table_initialization(self, patch_db_path):
+        from backend.repositories.base import get_db
+        with get_db() as conn:
+            tables = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'"
+            ).fetchall()
+            table_names = [t[0] for t in tables]
+            assert "analysis_history" in table_names
 
-    @pytest.mark.asyncio
-    async def test_get_history_detail(self, patch_db_path):
-        from backend.core.database import save_analysis, get_history, list_history
-
-        await save_analysis(
-            symbol="DETAIL", market="us_stock", workflow="quick_scan",
-            agents=["technical"], opinions=[], report={}, markdown="test",
-        )
-        records = await list_history()
-        detail = await get_history(records[0]["id"])
-        assert detail is not None
-        assert detail["symbol"] == "DETAIL"
-
-    @pytest.mark.asyncio
-    async def test_delete_history(self, patch_db_path):
-        from backend.core.database import save_analysis, list_history, delete_history
-
-        await save_analysis(
-            symbol="DEL", market="a_share", workflow="test",
-            agents=[], opinions=[], report={}, markdown="",
-        )
-        records = await list_history()
-        assert len(records) >= 1
-        result = await delete_history(records[0]["id"])
-        assert result is True
-
-    @pytest.mark.asyncio
-    async def test_backtest_empty(self, patch_db_path):
-        from backend.core.database import backtest
-
-        result = await backtest(symbol="EMPTY", days=30)
-        assert result["records"] == 0
+    def test_wal_mode_enabled(self, patch_db_path):
+        from backend.repositories.base import get_db
+        with get_db() as conn:
+            journal_mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+            assert journal_mode.lower() == "wal"

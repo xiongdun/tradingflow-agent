@@ -8,7 +8,6 @@ import time
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
 
 class TestCacheKey:
@@ -32,7 +31,8 @@ class TestCachedCall:
         cache_dir.mkdir()
 
         with patch("backend.core.cache._CACHE_DIR", cache_dir):
-            fn = lambda: {"data": 42}
+            def fn():
+                return {"data": 42}
             result1 = cached_call("test_method", fn)
             assert result1 == {"data": 42}
             result2 = cached_call("test_method", fn)

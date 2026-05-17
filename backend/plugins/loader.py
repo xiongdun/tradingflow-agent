@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import importlib
 import json
 import shutil
 import subprocess
@@ -12,7 +11,6 @@ import tempfile
 import zipfile
 from io import BytesIO
 from pathlib import Path
-from typing import Any
 from urllib.parse import urlparse
 
 import httpx
@@ -132,11 +130,12 @@ class PluginLoader:
         if not pkg_dir.exists():
             pkg_dir = _PKGS_DIR / package
         if not pkg_dir.exists():
-            pkg_dir = self._find_package_dir(_PKGS_DIR, package)
+            pkg_dir = self._find_package_dir(_PKGS_DIR, package)  # type: ignore[assignment]
 
         if pkg_dir is None or not pkg_dir.exists():
             raise PluginLoadError(f"安装成功但未找到包目录: {package}")
 
+        assert pkg_dir is not None  # for type checker
         manifest = self._load_manifest(pkg_dir)
         manifest.source = "pip"
         manifest.source_url = spec
@@ -210,7 +209,7 @@ class PluginLoader:
                 manifest.installed_path = str(plugin_dir)
                 plugin_registry.register(manifest)
                 return manifest
-            raise PluginLoadError(f"manifest.json 缺少 entry_point 字段")
+            raise PluginLoadError("manifest.json 缺少 entry_point 字段")
 
         raise PluginLoadError(f"不支持的 Content-Type: {content_type}")
 

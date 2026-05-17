@@ -108,6 +108,20 @@ export function useWebSocket() {
             store.addProgress(`❌ 错误: ${msg.message}`);
             store.setAnalyzing(false);
             break;
+          case 'trade_order':
+            if (msg.order_id) {
+              const d = (msg.data as Record<string, unknown>) || {};
+              store.setPendingOrder({
+                orderId: msg.order_id,
+                symbol: (d.symbol as string) || '',
+                side: (d.side as string) || 'buy',
+                price: (d.price as number) || 0,
+                quantity: (d.quantity as number) || 0,
+                agentName: msg.agent_name || '',
+              });
+              store.addProgress(`📋 交易订单: ${(d.side as string) === 'buy' ? '买入' : '卖出'} ${d.symbol}`);
+            }
+            break;
         }
       });
     };

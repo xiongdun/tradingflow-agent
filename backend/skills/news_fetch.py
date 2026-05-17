@@ -11,7 +11,7 @@ from backend.skills.registry import skill
 @skill(
     name="news_fetch",
     description="获取股票相关新闻资讯，用于新闻面分析和事件驱动分析",
-    markets=["a_share", "h_stock", "us_stock"],
+    markets=["a_share", "h_stock", "us_stock", "bond", "futures", "crypto"],
     category="news",
     label="新闻资讯",
 )
@@ -68,10 +68,10 @@ def _fetch_yfinance_news(symbol: str, market: str, limit: int) -> dict[str, Any]
                 or content.get("description")
                 or item.get("summary", "")
             )
-            source = ""
+            source: str = ""
             provider = content.get("provider", {})
             if isinstance(provider, dict):
-                source = provider.get("displayName", provider.get("name", ""))
+                source = str(provider.get("displayName", provider.get("name", "")) or "")
             elif isinstance(provider, str):
                 source = provider
             pub_date = (

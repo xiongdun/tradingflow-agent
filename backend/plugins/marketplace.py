@@ -67,7 +67,7 @@ class SkillMarketplace:
             resp.raise_for_status()
             data = resp.json()
             listings = [PluginListing(item) for item in data.get("plugins", [])]
-            return {"plugins": [l.to_dict() for l in listings], "total": data.get("total", 0), "page": page, "limit": limit}
+            return {"plugins": [listing.to_dict() for listing in listings], "total": data.get("total", 0), "page": page, "limit": limit}
         except httpx.HTTPError as e:
             logger.warning(f"[marketplace] 搜索失败: {e}")
             return {"plugins": [], "total": 0, "page": page, "limit": limit, "error": str(e)}

@@ -12,6 +12,9 @@ const SYMBOL_PATTERNS: Record<string, RegExp> = {
   a_share: /^\d{6}$/,
   h_stock: /^\d{5}$/,
   us_stock: /^[A-Za-z]{1,5}$/,
+  bond: /^[A-Za-z0-9]{4,10}$/,
+  futures: /^[A-Za-z0-9]{2,10}$/,
+  crypto: /^[A-Za-z]{2,10}$/,
 };
 
 // 快捷股票预设 — 点击即可自动填入代码并分析
@@ -20,6 +23,9 @@ const QUICK_STOCKS: { label: string; symbol: string; market: string; emoji: stri
   { label: '比亚迪', symbol: '002594', market: 'a_share', emoji: '⚡' },
   { label: '腾讯', symbol: '00700', market: 'h_stock', emoji: '💬' },
   { label: 'Apple', symbol: 'AAPL', market: 'us_stock', emoji: '🍎' },
+  { label: '国债ETF', symbol: '511010', market: 'bond', emoji: '🏛' },
+  { label: '沪深300', symbol: 'IF2506', market: 'futures', emoji: '📈' },
+  { label: 'BTC', symbol: 'BTC', market: 'crypto', emoji: '₿' },
 ];
 
 export function ControlBar() {
@@ -46,7 +52,7 @@ export function ControlBar() {
   const validateSymbol = (symbol: string, market: string): boolean => {
     const pattern = SYMBOL_PATTERNS[market];
     if (pattern && !pattern.test(symbol.trim())) {
-      const marketNames: Record<string, string> = { a_share: 'A股', h_stock: '港股', us_stock: '美股' };
+      const marketNames: Record<string, string> = { a_share: 'A股', h_stock: '港股', us_stock: '美股', bond: '债券', futures: '期货', crypto: '加密货币' };
       showToast(`请输入正确的${marketNames[market] || ''}股票代码`, 'warning');
       return false;
     }
@@ -120,6 +126,9 @@ export function ControlBar() {
         <option value="a_share">🇨🇳 A股</option>
         <option value="h_stock">🇭🇰 港股</option>
         <option value="us_stock">🇺🇸 美股</option>
+        <option value="bond">🏛 债券</option>
+        <option value="futures">📈 期货</option>
+        <option value="crypto">₿ 加密货币</option>
       </select>
 
       {/* 分析按钮 */}

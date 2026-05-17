@@ -3,11 +3,9 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field
 from pydantic_settings import BaseSettings
 
 # 项目根目录（backend/core/ 的上两级）
@@ -15,8 +13,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 # .env 配置文件路径
 ENV_FILE = PROJECT_ROOT / ".env"
 
-# 支持的市场类型：A股、港股、美股
-MarketType = Literal["a_share", "h_stock", "us_stock"]
+# 支持的市场类型：A股、港股、美股、债券、期货、加密货币
+MarketType = Literal["a_share", "h_stock", "us_stock", "bond", "futures", "crypto"]
 
 
 class Settings(BaseSettings):
@@ -62,6 +60,15 @@ class Settings(BaseSettings):
     adaptive_large_cap: float = 100_000_000_000    # 大市值阈值（默认1000亿）
     adaptive_small_cap: float = 10_000_000_000     # 小市值阈值（默认100亿）
     adaptive_high_turnover: float = 5.0            # 高换手率阈值（%）
+
+    # ── 交易配置 ──
+    trading_enabled: bool = False                  # 是否启用交易功能
+    broker_type: str = "simulated"                 # 券商类型：simulated / easytrader
+    broker_account: str = ""                       # 券商账号
+    broker_password: str = ""                      # 券商密码
+    trade_confirm_required: bool = True            # 是否需要用户确认后才下单
+    trade_max_amount: float = 100_000              # 单笔最大金额（元）
+    trade_max_position_pct: float = 0.3            # 最大持仓比例（0-1）
 
     model_config = {
         "env_file": str(ENV_FILE),

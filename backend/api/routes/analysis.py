@@ -52,7 +52,7 @@ async def run_analysis(req: AnalyzeRequest, request: Request):
     from backend.core.analysis_service import AnalysisService
 
     if req.agents:
-        workflow_def = {"name": "custom", "agents": [{"role": r} for r in req.agents]}
+        workflow_def: dict[str, Any] | None = {"name": "custom", "agents": [{"role": r} for r in req.agents]}
     else:
         workflow_def = AnalysisService.load_workflow(req.workflow)
         if not workflow_def:
@@ -61,6 +61,7 @@ async def run_analysis(req: AnalyzeRequest, request: Request):
                 content={"error": f"Workflow template not found: {req.workflow}"},
             )
 
+    assert workflow_def is not None  # verified above
     try:
         result = await AnalysisService.run_and_save(req.symbol, req.market, workflow_def)
         return {"status": "completed", "report": result["report"], "markdown": result["markdown"]}
@@ -145,13 +146,14 @@ async def ws_analyze(ws: WebSocket):
                         if info.get(key):
                             entry[key] = info[key]
                     agents_def.append(entry)
-                workflow_def = {"name": "custom", "agents": agents_def}
+                workflow_def: dict[str, Any] | None = {"name": "custom", "agents": agents_def}
             else:
                 workflow_def = AnalysisService.load_workflow(workflow_name)
                 if not workflow_def:
                     await _send_ws(ws, {"type": "error", "message": f"Template not found: {workflow_name}"})
                     continue
 
+            assert workflow_def is not None  # guarded above
             _analysis_running = True
             await _send_ws(ws, {"type": "status", "status": "started", "workflow": workflow_def.get("name")})
             await _send_ws(ws, {

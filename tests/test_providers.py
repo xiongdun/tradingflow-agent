@@ -76,7 +76,6 @@ class TestFallbackSafety:
 
     def test_safe_empty_result_all_methods(self):
         """验证 _safe_empty_result 为每个 data 方法返回正确类型的空值"""
-        import pytest
         from backend.data.fallback_provider import _safe_empty_result
 
         test_cases = [

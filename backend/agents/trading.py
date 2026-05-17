@@ -3,6 +3,10 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+from loguru import logger
+
 from backend.agents.base import BaseAgent, agent
 
 
@@ -50,6 +54,151 @@ from backend.agents.base import BaseAgent, agent
     "summary": "完整的交易决策报告，包含风险评估结论、风险管理策略、最终交易建议"
 }
 
-注意：你不是分析师，你是最终决策者。你的价值在于将分析转化为可执行的、风控合理的交易指令。""")
+注意：你不是分析师，你是最终决策者。你的价值在于将分析转化为可执行的、风控合理的交易指令。
+
+如果你决定执行交易（非 neutral 立场且 confidence > 0.6），请额外输出 trade_action 字段：
+{
+    "stance": "bullish/bearish/neutral",
+    "confidence": 0.0-1.0,
+    "key_points": ["交易决策要点1", "交易决策要点2"],
+    "risk_factors": ["主要风险1", "主要风险2"],
+    "summary": "完整的交易决策报告",
+    "trade_action": {
+        "side": "buy 或 sell",
+        "price": 0,
+        "quantity": 0,
+        "reason": "交易理由简述"
+    }
+}
+
+trade_action 说明：
+- side: 买入用 buy，卖出用 sell
+- price: 0 表示使用市价
+- quantity: 建议交易股数（基于风控仓位建议计算）
+- 如果你决定观望（neutral）或 confidence ≤ 0.6，请不要输出 trade_action 字段""")
 class TradingAgent(BaseAgent):
     """投资组合经理 — 三阶段：风险评估 → 风险管理 → 交易决策"""
+
+    async def run(self, state: dict) -> dict:
+        """LangGraph 节点 — 执行分析后检测 trade_action 并自动创建订单"""
+        callback = state.get("status_callback")
+
+        # 报告开始
+        if callback:
+            try:
+                await callback("running", self.role, self.name, {})
+            except Exception:
+                pass
+
+        try:
+            opinion = await self.analyze(
+                state["symbol"], state["market"],
+                cross_review=state.get("cross_review", ""),
+                status_callback=callback,
+            )
+        except Exception as e:
+            if callback:
+                try:
+                    await callback("error", self.role, self.name, {"message": str(e)})
+                except Exception:
+                    pass
+            raise
+
+        opinion_data = opinion.model_dump()
+        if "round" in state:
+            opinion_data["round"] = state.get("round", 0)
+
+        # ── 检测 trade_action：LLM 输出中是否包含交易指令 ──
+        trade_action = self._extract_trade_action(opinion_data)
+        if trade_action:
+            await self._auto_execute_trade(
+                state["symbol"], state["market"], trade_action, opinion_data, callback
+            )
+
+        # 报告完成
+        if callback:
+            try:
+                await callback("done", self.role, self.name, {})
+            except Exception:
+                pass
+
+        return {"opinions": [opinion_data]}
+
+    def _extract_trade_action(self, opinion_data: dict) -> dict[str, Any] | None:
+        """从 LLM 输出的 summary 或 data_evidence 中提取 trade_action"""
+        # 方式1：summary 中包含 JSON trade_action
+        summary = opinion_data.get("summary", "")
+        if '"trade_action"' in summary:
+            from backend.core.parsing import parse_structured_output
+            parsed = parse_structured_output(summary, {})
+            if "trade_action" in parsed:
+                return parsed["trade_action"]
+
+        # 方式2：data_evidence 中包含 trade_action
+        evidence = opinion_data.get("data_evidence", {})
+        if isinstance(evidence, dict) and "trade_action" in evidence:
+            return evidence["trade_action"]
+
+        return None
+
+    async def _auto_execute_trade(
+        self, symbol: str, market: str,
+        trade_action: dict[str, Any], opinion_data: dict[str, Any],
+        callback: Any = None,
+    ) -> None:
+        """自动创建交易订单"""
+        from backend.core.config import load_settings
+
+        settings = load_settings()
+
+        # 仅 A 股市场支持自动交易
+        if market != "a_share":
+            logger.info(f"[{self.name}] 非A股市场({market})，跳过自动交易")
+            return
+
+        # 未启用交易功能
+        if not settings.trading_enabled:
+            logger.info(f"[{self.name}] 交易功能未启用，跳过自动交易")
+            return
+
+        side = trade_action.get("side", "buy")
+        price = float(trade_action.get("price", 0))
+        quantity = int(trade_action.get("quantity", 0))
+
+        if quantity <= 0:
+            logger.info(f"[{self.name}] 交易数量为 0，跳过自动交易")
+            return
+
+        try:
+            from backend.trading.executor import get_executor
+            executor = get_executor()
+
+            order = await executor.create_order(
+                symbol=symbol,
+                market=market,
+                side=side,
+                price=price,
+                quantity=quantity,
+                agent_opinion=opinion_data,
+            )
+
+            logger.info(
+                f"[{self.name}] 自动创建订单: {side} {symbol} {quantity}股 @ ¥{price:.2f} → 订单 {order.id}"
+            )
+
+            # 通过 WebSocket 通知前端
+            if callback:
+                try:
+                    await callback("trade_order", self.role, self.name, {
+                        "order_id": order.id,
+                        "symbol": symbol,
+                        "side": side,
+                        "price": price,
+                        "quantity": quantity,
+                        "status": order.status.value,
+                        "confirm_required": executor.confirm_required,
+                    })
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.error(f"[{self.name}] 自动创建订单失败: {e}")

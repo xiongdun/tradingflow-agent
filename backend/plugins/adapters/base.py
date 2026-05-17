@@ -7,7 +7,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
-from loguru import logger
 
 # 全局适配器注册表（外部插件适配器注册到这里）
 adapter_registry: dict[str, dict[str, Any]] = {}
@@ -57,7 +56,8 @@ class FunctionAdapter(NodeAdapter):
             self._config = {}
 
     async def invoke(self, state: dict) -> dict:
-        import asyncio, functools
+        import asyncio
+        import functools
         fn = self._fn
         if fn is None and self._config.get("module") and self._config.get("function"):
             import importlib
@@ -127,7 +127,9 @@ class ScriptAdapter(NodeAdapter):
         self.description = self._config.get("description", "Python 脚本适配器")
 
     async def invoke(self, state: dict) -> dict:
-        import importlib.util, asyncio, functools
+        import importlib.util
+        import asyncio
+        import functools
         script_path = self._config.get("script_path", "")
         func_name = self._config.get("function", "run")
         output_key = self._config.get("output_key", "script_result")
@@ -161,7 +163,8 @@ class DockerAdapter(NodeAdapter):
         self.description = self._config.get("description", "Docker 容器适配器")
 
     async def invoke(self, state: dict) -> dict:
-        import asyncio, json
+        import asyncio
+        import json
         image = self._config.get("image", "")
         output_key = self._config.get("output_key", "docker_result")
         env = self._config.get("env", {})
@@ -197,7 +200,8 @@ class MCPAdapter(NodeAdapter):
         self.description = self._config.get("description", "MCP Server 适配器")
 
     async def invoke(self, state: dict) -> dict:
-        import asyncio, json
+        import asyncio
+        import json
         command = self._config.get("command", "")
         args = self._config.get("args", [])
         tool_name = self._config.get("tool", "")
@@ -251,6 +255,7 @@ class LangChainAdapter(NodeAdapter):
         else:
             from langchain_core.tools import tool as langchain_tool
             self._tool = langchain_tool(tool_class_path)
+        assert self._tool is not None, "Tool initialization failed"
         input_text = self._config.get("input_template", "{symbol} {market}").format(**state)
         if not input_text.strip():
             input_text = f"{state.get('symbol', '')} {state.get('market', '')}"
@@ -290,7 +295,7 @@ def create_adapter(adapter_type: str, config: dict[str, Any] | None = None) -> N
     cls = get_adapter_class(adapter_type)
     if cls is None:
         raise ValueError(f"未知的适配器类型: {adapter_type}")
-    return cls(config=config)
+    return cls(config=config)  # type: ignore[call-arg]
 
 
 def list_adapter_types() -> list[dict[str, Any]]:

@@ -19,7 +19,8 @@ def generate_markdown_report(report: dict[str, Any], lang: str | None = None) ->
     action = report.get("action_suggestion", "hold")
     opinions = report.get("agent_opinions", [])
 
-    T = lambda key: get_report_text(key, lang)
+    def T(key):
+        return get_report_text(key, lang)
 
     lines = [
         T("report_title").format(stock=stock, market=market),
@@ -31,7 +32,7 @@ def generate_markdown_report(report: dict[str, Any], lang: str | None = None) ->
         T("section_overall"),
         "",
         f"| {T('col_indicator')} | {T('col_result')} |",
-        f"|------|------|",
+        "|------|------|",
         f"| {T('overall_stance')} | {get_stance_emoji(stance, lang)} |",
         f"| {T('confidence')} | {confidence:.0%} |",
         f"| {T('action_advice')} | {get_action_emoji(action, lang)} |",

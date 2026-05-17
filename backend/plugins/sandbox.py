@@ -9,7 +9,6 @@ import json
 import sys
 from typing import Any
 
-from loguru import logger
 
 from backend.plugins.manifest import Permission, PluginManifest
 from backend.skills.registry import SkillMeta
@@ -124,7 +123,7 @@ class SkillSandbox:
 
     def validate_permissions(self) -> list[str]:
         """校验权限合规性，返回不合规的权限列表"""
-        blocked = []
+        blocked: list[str] = []
         if self.manifest and self.manifest.source == "local":
             return blocked
         if Permission.FULL_ACCESS in self.permissions:

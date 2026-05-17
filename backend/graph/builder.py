@@ -37,48 +37,48 @@ def validate_workflow_def(workflow_def: dict[str, Any]) -> list[str]:
     from backend.skills.registry import get_skill
     from backend.agents.generic import GenericAgent
 
-    errors: list[str] = []
+    errors_v1: list[str] = []
 
     mode = workflow_def.get("mode", "parallel")
     valid_modes = {"parallel", "conditional", "multi_round", "adaptive"}
     if mode not in valid_modes:
-        errors.append(f"未知的工作流模式: {mode}，可选: {', '.join(valid_modes)}")
+        errors_v1.append(f"未知的工作流模式: {mode}，可选: {', '.join(valid_modes)}")
 
     agents_raw = workflow_def.get("agents", [])
     for agent_def in agents_raw:
         role = agent_def.get("role", "") if isinstance(agent_def, dict) else agent_def
         if not role:
-            errors.append("Agent 定义缺少 role 字段")
+            errors_v1.append("Agent 定义缺少 role 字段")
             continue
         cls = get_agent_class(role)
         if cls is None and isinstance(role, str) and role.startswith("custom_"):
             cls = GenericAgent
         if cls is None:
-            errors.append(f"未知的 Agent 角色: {role}")
+            errors_v1.append(f"未知的 Agent 角色: {role}")
         elif cls is not GenericAgent:
             skills = agent_def.get("skills", []) if isinstance(agent_def, dict) else []
             for skill_name in skills:
                 if get_skill(skill_name) is None:
-                    errors.append(f"Agent '{role}' 引用了未知技能: {skill_name}")
+                    errors_v1.append(f"Agent '{role}' 引用了未知技能: {skill_name}")
 
     if mode == "conditional":
         for i, stage in enumerate(workflow_def.get("stages", [])):
             if "agents" not in stage:
-                errors.append(f"条件阶段 {i} 缺少 agents 字段")
+                errors_v1.append(f"条件阶段 {i} 缺少 agents 字段")
                 continue
             for role in stage.get("agents", []):
                 cls = get_agent_class(role)
                 if cls is None and isinstance(role, str) and role.startswith("custom_"):
                     cls = GenericAgent
                 if cls is None:
-                    errors.append(f"条件阶段 {i} 引用了未知 Agent 角色: {role}")
+                    errors_v1.append(f"条件阶段 {i} 引用了未知 Agent 角色: {role}")
 
     if mode == "multi_round":
         rounds = workflow_def.get("rounds", 2)
         if not isinstance(rounds, int) or rounds < 1:
-            errors.append(f"multi_round 模式的 rounds 参数必须为正整数，当前值: {rounds}")
+            errors_v1.append(f"multi_round 模式的 rounds 参数必须为正整数，当前值: {rounds}")
 
-    return errors
+    return errors_v1
 
 
 def build_from_json(workflow_def: dict[str, Any]) -> Any:

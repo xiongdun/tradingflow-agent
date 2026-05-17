@@ -12,7 +12,7 @@ from backend.skills.registry import skill
 @skill(
     name="financial_data",
     description="获取股票基本面财务数据（PE/PB/ROE/市值/营收等），用于基本面分析",
-    markets=["a_share", "h_stock", "us_stock"],
+    markets=["a_share", "h_stock", "us_stock", "bond", "futures", "crypto"],
     category="fundamental",
     label="财务数据",
 )
@@ -33,7 +33,7 @@ def get_financial_data(symbol: str, market: str) -> dict[str, Any]:
 @skill(
     name="stock_info",
     description="获取股票基本信息（名称/行业/市值等）",
-    markets=["a_share", "h_stock", "us_stock"],
+    markets=["a_share", "h_stock", "us_stock", "bond", "futures", "crypto"],
     category="fundamental",
     label="股票信息",
 )
@@ -47,7 +47,7 @@ def get_stock_info(symbol: str, market: str) -> dict[str, Any]:
 @skill(
     name="realtime_quote",
     description="获取股票实时行情报价（最新价/涨跌幅/成交量等）",
-    markets=["a_share", "h_stock", "us_stock"],
+    markets=["a_share", "h_stock", "us_stock", "bond", "futures", "crypto"],
     category="data",
     label="实时行情",
 )

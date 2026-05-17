@@ -18,7 +18,7 @@ from backend.skills.registry import skill
 def get_fund_flow(symbol: str, market: str = "a_share") -> dict[str, Any]:
     """获取个股资金流向明细，分析主力和散户资金动向"""
     import akshare as ak
-    result = {"symbol": symbol, "market": "a_share", "flow": {}, "trend": "neutral", "days_inflow": 0}
+    result: dict[str, Any] = {"symbol": symbol, "market": "a_share", "flow": {}, "trend": "neutral", "days_inflow": 0}
 
     try:
         df = ak.stock_individual_fund_flow(stock=symbol, market="sh")

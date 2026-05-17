@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import atexit
 import sys
 from pathlib import Path
 
@@ -55,7 +56,7 @@ logger.add(
 
 # ──────────────────────────── 自动发现 ────────────────────────────
 
-from backend.core.discovery import auto_discover
+from backend.core.discovery import auto_discover  # noqa: E402
 auto_discover()
 
 
@@ -67,7 +68,7 @@ app = FastAPI(
     version="0.1.0",
 )
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
 app.add_middleware(
     CORSMiddleware,
@@ -80,19 +81,20 @@ app.add_middleware(
 
 # ──────────────────────────── 注册路由 ────────────────────────────
 
-from backend.api.routes.market_data import router as market_router
-from backend.api.routes.agents import router as agents_router
-from backend.api.routes.workflows import router as workflows_router
-from backend.api.routes.data_sources import router as data_sources_router
-from backend.api.routes.history import router as history_router
-from backend.api.routes.watchlist import router as watchlist_router
-from backend.api.routes.schedules import router as schedules_router
-from backend.api.routes.analysis import router as analysis_router
-from backend.api.routes.plugins import router as plugins_router
-from backend.api.routes.adapters import router as adapters_router
-from backend.api.routes.skills import router as skills_router
-from backend.api.routes.features import router as features_router
-from backend.api.routes.metrics import router as metrics_router
+from backend.api.routes.market_data import router as market_router  # noqa: E402
+from backend.api.routes.agents import router as agents_router  # noqa: E402
+from backend.api.routes.workflows import router as workflows_router  # noqa: E402
+from backend.api.routes.data_sources import router as data_sources_router  # noqa: E402
+from backend.api.routes.history import router as history_router  # noqa: E402
+from backend.api.routes.watchlist import router as watchlist_router  # noqa: E402
+from backend.api.routes.schedules import router as schedules_router  # noqa: E402
+from backend.api.routes.analysis import router as analysis_router  # noqa: E402
+from backend.api.routes.plugins import router as plugins_router  # noqa: E402
+from backend.api.routes.adapters import router as adapters_router  # noqa: E402
+from backend.api.routes.skills import router as skills_router  # noqa: E402
+from backend.api.routes.features import router as features_router  # noqa: E402
+from backend.api.routes.metrics import router as metrics_router  # noqa: E402
+from backend.api.routes.trading import router as trading_router  # noqa: E402
 
 app.include_router(market_router)
 app.include_router(agents_router)
@@ -107,6 +109,7 @@ app.include_router(adapters_router)
 app.include_router(skills_router)
 app.include_router(features_router)
 app.include_router(metrics_router)
+app.include_router(trading_router)
 
 
 # ──────────────────────────── 请求/响应模型 ────────────────────────────
@@ -153,6 +156,8 @@ _CONFIG_WHITELIST = {
     "fallback_retry_max", "fallback_retry_wait_min", "fallback_retry_wait_max",
     "max_agents_per_analysis",
     "adaptive_large_cap", "adaptive_small_cap", "adaptive_high_turnover",
+    "trading_enabled", "broker_type", "broker_account", "broker_password",
+    "trade_confirm_required", "trade_max_amount", "trade_max_position_pct",
 }
 
 
@@ -227,8 +232,6 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 
 # ────────────────── 优雅停机：连接池清理 ──────────────────
-
-import atexit
 
 @atexit.register
 def _cleanup_pool():

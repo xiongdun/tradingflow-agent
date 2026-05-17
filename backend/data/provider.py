@@ -8,7 +8,7 @@ import os
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from datetime import datetime
-from typing import Any, Callable
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -25,9 +25,9 @@ def provider(name: str, markets: list[str] | None = None, default_priority: int 
             ...
     """
     def decorator(cls: type) -> type:
-        cls._provider_name = name
-        cls._provider_markets = markets or ["a_share", "h_stock", "us_stock"]
-        cls._provider_priority = default_priority
+        cls._provider_name = name  # type: ignore[attr-defined]
+        cls._provider_markets = markets or ["a_share", "h_stock", "us_stock"]  # type: ignore[attr-defined]
+        cls._provider_priority = default_priority  # type: ignore[attr-defined]
         _providers_registry[name] = cls
         return cls
     return decorator
@@ -63,7 +63,7 @@ def bypass_proxy():
     old = {k: os.environ.pop(k, None) for k in keys}
     # 同时设置 NO_PROXY 包含目标域名
     old_no_proxy = os.environ.get("NO_PROXY", "")
-    os.environ["NO_PROXY"] = old_no_proxy + ",*.eastmoney.com,*.tushare.pro,*.yahoo.com"
+    os.environ["NO_PROXY"] = old_no_proxy + ",*.eastmoney.com,*.tushare.pro,*.yahoo.com,*.sina.com.cn,*.jsl.com"
     try:
         yield
     finally:

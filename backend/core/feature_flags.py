@@ -53,6 +53,6 @@ def experimental(flag_name: str | None = None):
                 return None
             return cls_or_func(*args, **kwargs)
 
-        wrapper._experimental_meta = meta
+        wrapper._experimental_meta = meta  # type: ignore[attr-defined]
         return wrapper
     return decorator

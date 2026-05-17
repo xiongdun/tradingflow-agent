@@ -46,9 +46,10 @@ def build_adaptive_workflow(
                 provider = get_provider(market)
                 info = provider.get_stock_info(symbol)
                 if info:
-                    market_cap = info.get("market_cap", 0) or 0
-                    turnover = info.get("turnover_rate", 0) or 0
-                    industry = info.get("industry", "") or ""
+                    info_dict: dict[str, Any] = info.model_dump() if hasattr(info, "model_dump") else dict(info)
+                    market_cap = info_dict.get("market_cap", 0) or 0
+                    turnover = info_dict.get("turnover_rate", 0) or 0
+                    industry = info_dict.get("industry", "") or ""
 
                     if market_cap > cfg.adaptive_large_cap:
                         selected = ["fundamental", "macro", "quant", "risk"]
@@ -66,10 +67,10 @@ def build_adaptive_workflow(
         return {"selected_agents": selected}
 
     builder = StateGraph(AgentState)
-    builder.add_node("selector", selector_node)
+    builder.add_node("selector", selector_node)  # type: ignore[type-var]
     for role, node_fn in filtered_agents.items():
-        builder.add_node(role, node_fn)
-    builder.add_node("summarizer", summarizer.run)
+        builder.add_node(role, node_fn)  # type: ignore[type-var]
+    builder.add_node("summarizer", summarizer.run)  # type: ignore[type-var]
 
     builder.add_edge(START, "selector")
     for role in filtered_agents:

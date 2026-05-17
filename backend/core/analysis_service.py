@@ -38,12 +38,12 @@ class AnalysisService:
 
         mode = workflow_def.get("mode", "parallel")
         if mode == "conditional":
-            roles: list[str] = []
+            conditional_roles: list[str] = []
             for stage in workflow_def.get("stages", []):
                 for role in stage.get("agents", []):
-                    if role not in roles:
-                        roles.append(role)
-            return roles
+                    if role not in conditional_roles:
+                        conditional_roles.append(role)
+            return conditional_roles
 
         agents_raw = workflow_def.get("agents", [])
         if agents_raw and isinstance(agents_raw[0], str):

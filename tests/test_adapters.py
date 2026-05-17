@@ -5,10 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-import sys
-import types
 import tempfile
-from pathlib import Path
 from unittest.mock import patch, AsyncMock, MagicMock
 
 import pytest
@@ -134,7 +131,7 @@ class TestHTTPAdapter:
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=False)
             MockClient.return_value = mock_client
-            result = asyncio.get_event_loop().run_until_complete(
+            asyncio.get_event_loop().run_until_complete(
                 a.invoke({"symbol": "600519", "market": "a_share"})
             )
             # 验证 URL 被正确替换
@@ -154,7 +151,7 @@ class TestHTTPAdapter:
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=False)
             MockClient.return_value = mock_client
-            result = asyncio.get_event_loop().run_until_complete(
+            asyncio.get_event_loop().run_until_complete(
                 a.invoke({"symbol": "600519", "market": "a_share"})
             )
             # body_map should map "symbol" -> "code"

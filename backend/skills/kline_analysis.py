@@ -12,7 +12,7 @@ from backend.skills.registry import skill
 @skill(
     name="kline_data",
     description="获取股票K线历史数据（OHLCV），支持日K/周K/月K",
-    markets=["a_share", "h_stock", "us_stock"],
+    markets=["a_share", "h_stock", "us_stock", "bond", "futures", "crypto"],
     category="technical",
     label="K线数据",
     params={"period": "daily|weekly|monthly", "days": "number of days"},

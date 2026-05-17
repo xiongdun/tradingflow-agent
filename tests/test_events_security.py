@@ -4,13 +4,9 @@
 from __future__ import annotations
 
 import asyncio
-import json
-import time
 from datetime import datetime, timedelta
-from pathlib import Path
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, AsyncMock
 
-import pytest
 
 
 # ═══════════════════════════════════════════════════════
@@ -159,7 +155,7 @@ class TestEventBus:
 class TestEventTrigger:
 
     def test_matches_exact(self):
-        from backend.plugins.events import EventTrigger, Event, EventBus
+        from backend.plugins.events import EventTrigger, Event
         t = EventTrigger("t1", "price_alert", {"symbol": "600519"}, "deep_analysis")
         e = Event("price_alert", {"symbol": "600519"})
         assert t.matches(e) is True

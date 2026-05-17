@@ -18,7 +18,7 @@ from backend.skills.registry import skill
 def get_dragon_tiger(symbol: str, market: str = "a_share") -> dict[str, Any]:
     """获取 A 股龙虎榜数据，包含上榜日期、原因、买卖金额等"""
     import akshare as ak
-    result = {"symbol": symbol, "market": "a_share", "listings": [], "summary": ""}
+    result: dict[str, Any] = {"symbol": symbol, "market": "a_share", "listings": [], "summary": ""}
 
     try:
         # 获取近 30 天龙虎榜明细数据

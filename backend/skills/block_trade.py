@@ -18,7 +18,7 @@ from backend.skills.registry import skill
 def get_block_trade(symbol: str, market: str = "a_share") -> dict[str, Any]:
     """获取个股近期大宗交易记录"""
     import akshare as ak
-    result = {"symbol": symbol, "market": "a_share", "recent_trades": [], "summary": "", "net_direction": "neutral"}
+    result: dict[str, Any] = {"symbol": symbol, "market": "a_share", "recent_trades": [], "summary": "", "net_direction": "neutral"}
 
     try:
         df = ak.stock_dzjy_sctj()

@@ -30,9 +30,9 @@ def register_llm(name: str) -> Callable:
 @register_llm("mimo")
 def _build_openai_compat(s: Settings) -> BaseChatModel:
     from langchain_openai import ChatOpenAI
-    return ChatOpenAI(
+    return ChatOpenAI(  # type: ignore[call-arg]
         model=s.llm_model,
-        api_key=s.llm_api_key,
+        api_key=s.llm_api_key,  # type: ignore[arg-type]
         base_url=s.llm_base_url,
         temperature=s.llm_temperature,
         max_tokens=s.llm_max_tokens,

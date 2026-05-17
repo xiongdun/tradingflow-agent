@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import patch
 
 import pytest
 
@@ -115,7 +113,6 @@ class TestBuildFromJson:
         assert g1 is g2
 
     def test_cache_size_limit(self):
-        from backend.graph.builder import _compile_cache
         from backend.graph.builder import _COMPILE_CACHE_MAX
         assert _COMPILE_CACHE_MAX == 50
 

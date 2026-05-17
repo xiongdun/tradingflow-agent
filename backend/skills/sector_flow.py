@@ -18,7 +18,7 @@ from backend.skills.registry import skill
 def get_sector_flow(symbol: str, market: str = "a_share") -> dict[str, Any]:
     """获取行业板块资金流向排名，识别当日热门板块"""
     import akshare as ak
-    result = {"symbol": symbol, "market": "a_share", "sectors": [], "hot_sectors": []}
+    result: dict[str, Any] = {"symbol": symbol, "market": "a_share", "sectors": [], "hot_sectors": []}
 
     try:
         # 获取今日板块资金流向排名

@@ -17,7 +17,6 @@ class EFinanceProvider(DataProvider):
 
     def get_realtime_quote(self, symbol: str) -> StockQuote:
         import efinance as ef
-        import pandas as pd
         try:
             with bypass_proxy():
                 df = ef.stock.get_realtime_quotes()
@@ -68,7 +67,6 @@ class EFinanceProvider(DataProvider):
 
     def get_stock_info(self, symbol: str) -> StockInfo:
         import efinance as ef
-        import pandas as pd
         try:
             with bypass_proxy():
                 df = ef.stock.get_realtime_quotes()

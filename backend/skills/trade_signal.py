@@ -12,7 +12,7 @@ from backend.skills.registry import skill
 @skill(
     name="trade_signal",
     description="获取股票实时行情、涨跌停信息、成交量异动，用于生成交易信号",
-    markets=["a_share", "h_stock", "us_stock"],
+    markets=["a_share", "h_stock", "us_stock", "bond", "futures", "crypto"],
     category="trading",
     label="交易信号",
     params={},

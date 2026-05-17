@@ -77,7 +77,7 @@ async def update_agent(role: str, req: AgentUpdate):
     if cls:
         if req.extra_prompt is not None:
             save_custom_agent(f"_override_{role}", {
-                "name": req.name or cls.name,
+                "name": req.name or cls.name,  # type: ignore[attr-defined]
                 "role": role,
                 "extra_prompt": req.extra_prompt,
             })
